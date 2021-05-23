@@ -278,8 +278,12 @@ bool AmrelTool::loadPoints ()
 void AmrelTool::run ()
 {
   // TILE IMPORTS
-  if (cfg.isDtmImportOn ()) cfg.importDtm ();
-  if (cfg.isXyzImportOn ()) cfg.importXyz ();
+  if (cfg.isDtmImportOn () || cfg.isXyzImportOn ())
+  {
+    if (cfg.isDtmImportOn ()) cfg.importDtm ();
+    if (cfg.isXyzImportOn ()) cfg.importXyz ();
+    return;
+  }
   if (! cfg.setTiles ()) return;
   if (cfg.isSeedCheckOn ())
   {

@@ -231,7 +231,11 @@ std::string AmrelConfig::tiles () const
 
 bool AmrelConfig::setTiles ()
 {
-  if (! added_tiles.empty ()) completeTileSet ();
+  if (! added_tiles.empty ())
+  {
+    completeTileSet ();
+    return false;
+  }
  
   std::string tsname (TILE_FILE_DIR);
   tsname += spec_name;
