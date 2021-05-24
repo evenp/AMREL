@@ -59,9 +59,16 @@ void ASArea::addCorner (int x, int y)
 
 void ASArea::save (int64_t xref, int64_t yref, int64_t tomm) const
 {
+  save ("tracks/area.txt", xref, yref, tomm);
+}
+
+
+void ASArea::save (std::string name,
+                   int64_t xref, int64_t yref, int64_t tomm) const
+{
   if (! corners.empty ())
   {
-    std::ofstream outf ("tracks/area.txt", std::ios::out);
+    std::ofstream outf (name, std::ios::out);
     std::vector<Pt2i>::const_iterator it = corners.begin ();
     while (it != corners.end ())
     {

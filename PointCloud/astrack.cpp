@@ -294,9 +294,16 @@ std::string ASTrack::getName () const
 
 void ASTrack::save (int64_t xref, int64_t yref, int64_t tomm) const
 {
+  save ("tracks/last.txt", xref, yref, tomm);
+}
+
+
+void ASTrack::save (std::string name,
+                    int64_t xref, int64_t yref, int64_t tomm) const
+{
   if (! pts.empty ())
   {
-    std::ofstream outf ("tracks/last.txt", std::ios::out);
+    std::ofstream outf (name.c_str (), std::ios::out);
     outf << "0 " << ewidth << std::endl;
     outf << (int) (pts.size ()) << std::endl;
     std::vector<Pt2i>::const_iterator it = pts.begin ();

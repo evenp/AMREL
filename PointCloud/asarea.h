@@ -80,6 +80,15 @@ public:
   void save (int64_t xref, int64_t yref, int64_t tomm) const;
 
   /**
+   * \brief Saves the area in given file.
+   * @param name Area file name.
+   * @param xref Leftmost coordinate (in millimeters).
+   * @param yref Lower coordinate (in millimeters).
+   * @param tomm Pixel to millimeter ratio.
+   */
+  void save (std::string name, int64_t xref, int64_t yref, int64_t tomm) const;
+
+  /**
    * \brief Loads the area from given file.
    * @param name File name.
    * @param xref Leftmost coordinate (in millimeters).

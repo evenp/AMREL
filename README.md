@@ -1,5 +1,7 @@
 # AMREL: Automatic Mountain Road Extraction from LiDAR data
 
+AMREL is a software tool to automatically extract roads from large LiDAR
+data sets of mountainous areas.
 The road extraction is performed in two steps:
 
 * seeds production using LiDAR derived digital terrain model (DTM) tiles,
@@ -58,6 +60,29 @@ No difference in accuracy between these modes.
 Default mode is "Top".
 Other modes can be selected using **--mid** or **--eco** options when
 running AMREL. Conversions are automatic.
+
+### Example of NVM and TIL files
+
+Gris-Mouton sector tiles of Fossard LiDAR data set are available in
+[AMRELtest GitHub repository](https::github.com/evenp/AMRELtest):
+
+1) Copy the files from **AMRELtest/Data/nvm/** directory
+into **$AMREL/nvm/** directory.
+
+2) Copy the files from **AMRELtest/Data/til/eco/** directory
+into **AMREL/til/eco/** directory.
+
+3) Copy the file *$AMRELtest/Data/tilesets/grismouton.txt*
+into **AMREL/tilesets** directory.
+
+4) Run **AMREL grismouton.txt**
+
+The result map is available in **AMREL/steps/roads.png** image.
+To test the precision of the achieved detection:
+
+1) Copy this image in **AMRELtest/Data/detections/roads_grismouton.png**
+
+2) In **AMRELtest/Code/** directory, run **roadgt --comp grismouton**
 
 ## TYPICAL USES
 
@@ -127,7 +152,7 @@ AMREL --asd --buf 7 tsetname.txt
 ###Map of extracted roads: roads.png
 
 A PNG format image displaying the extracted roads.
-It it stored into **steps** directory.
+It is stored into **steps** directory.
 
 ###Seeds to edit extracted roads in ILSD tool: autodet.txt
 

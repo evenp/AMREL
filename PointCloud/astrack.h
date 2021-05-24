@@ -138,12 +138,21 @@ public:
   std::string getName () const;
 
   /**
-   * \brief Saves the track points in a file.
+   * \brief Saves the track points in default file.
    * @param xref Leftmost coordinate (in millimeters).
    * @param yref Lower coordinate (in millimeters).
    * @param tomm Pixel to millimeter ratio.
    */
   void save (int64_t xref, int64_t yref, int64_t tomm) const;
+
+  /**
+   * \brief Saves the track points in given file.
+   * @param name Track file name.
+   * @param xref Leftmost coordinate (in millimeters).
+   * @param yref Lower coordinate (in millimeters).
+   * @param tomm Pixel to millimeter ratio.
+   */
+  void save (std::string name, int64_t xref, int64_t yref, int64_t tomm) const;
 
   /**
    * \brief Loads the track points from a file.
