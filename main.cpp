@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include "amreltool.h"
+#include "amreltimer.h"
 
 using namespace std;
 
@@ -127,15 +128,15 @@ int main (int argc, char *argv[])
         }
         autodet.config()->setImportFile (argv[i]);
       }
-      else if (string(argv[i]) == string ("--add")
-               || string(argv[i]) == string ("-a"))
+      else if (string(argv[i]) == string ("--tile")
+               || string(argv[i]) == string ("-t"))
       {
         if (++i == argc)
         {
-          std::cout << "Added tile name missing" << std::endl;
+          std::cout << "Tile name missing" << std::endl;
           return 0;
         }
-        autodet.config()->addToSet (argv[i]);
+        autodet.config()->addTileName (argv[i]);
       }
       else
       {

@@ -75,7 +75,7 @@ into **AMREL/til/eco/** directory.
 3) Copy the file *$AMRELtest/Data/tilesets/grismouton.txt*
 into **AMREL/tilesets** directory.
 
-4) Run **AMREL grismouton.txt**
+4) Run **AMREL grismouton**
 
 The result map is available in **AMREL/steps/roads.png** image.
 To test the precision of the achieved detection:
@@ -86,65 +86,61 @@ To test the precision of the achieved detection:
 
 ## TYPICAL USES
 
-To extract roads on **mytile** single tile:
+To extract roads on **tname** single tile:
 ```
-AMREL mytile
+AMREL --tile tname
 ```
-To add tile **tname** to tile set **tilesets/tsetname.txt**:
+To add tile **tname1** and **tname2** to tile set **tilesets/tsetname.txt**:
 ```
-AMREL --add tname tsetname.txt
-```
-To extract roads on tile **tname**
-```
-AMREL tname
+AMREL --tile tname1 --tile tname2 tsetname
 ```
 To extract roads on tile set **tilesets/tsetname.txt**
 ```
-AMREL tsetname.txt
+AMREL tsetname
 ```
 To only run first stage (slope shading) and output a result map in
 **steps/shade.png**:
 ```
-AMREL --shade --map tsetname.txt
+AMREL --shade --map tsetname
 ```
 To only run second stage (RORPO filter to enhance elongated shapes) and
 output a result map in **steps/shade.png** (assuming the result of previous
 stage is available) :
 ```
-AMREL --rorpo --map tsetname.txt
+AMREL --rorpo --map tsetname
 ```
 To only run third stage (gradient map computation using 5x5 mask Sobel filter)
 and output a result map in **steps/sobel.png** (assuming the result of previous
 stage is available) :
 ```
-AMREL --sobel --map tsetname.txt
+AMREL --sobel --map tsetname
 ```
 To only run fourth stage (straight segment extraction using FBSD detector)
 and output a result map in **steps/fbsd.png** (assuming the result of previous
 stage is available) :
 ```
-AMREL --fbsd --map tsetname.txt
+AMREL --fbsd --map tsetname
 ```
 To only run fifth stage (seeds  positionning on extracted segments)
 and output a result map in **steps/seeds.png** (assuming the result of previous
 stage is available) :
 ```
-AMREL --seeds --map tsetname.txt
+AMREL --seeds --map tsetname
 ```
 To only run sixth stage (road extraction using ASD) using extracted seeds
 (**steps/roads.png** output map is systematically produced) :
 ```
-AMREL --asd tsetname.txt
+AMREL --asd tsetname
 ```
 To build seeds from scratch on tiles listed in file **tilesets/tsetname.txt**
 using groups of 5x5 tiles:
 ```
-AMREL --sawing --pad 5 tsetname.txt
+AMREL --sawing --pad 5 tsetname
 ```
 To extract roads form selected seeds on tiles listed in file
 **tilesets/tsetname.txt** using groups of 7x7 tiles:
 ```
-AMREL --asd --buf 7 tsetname.txt
+AMREL --asd --buf 7 tsetname
 ```
 
 ## OUTPUTS
@@ -174,8 +170,8 @@ the output roads.
 
 | Argument | Description |
 |-----|-------------|
-| "name" | Specifies a single tile or a tile set |
-| --add "name" (or -a "name") | Adds tile "name" to a specified tile set |
+| "tsetname" | Specifies the tile set to process |
+| --tile "name" (or -t "name") | Specifies a tile to add to the tile set |
 | --dtmdir "name" | Specifies the path to imported DTM files |
 | --xyzdir "name" | Specifies the path to imported point files |
 | --import "name" (or -i "name") | Specifies the suffixed name of an imported file |

@@ -92,15 +92,15 @@ public:
   std::string tilSuffix () const;
 
   /**
-   * \brief Declares a tile to be added to current tile set.
-   * @param name Added tile name.
-   */
-  void addToSet (const std::string &name);
-
-  /**
    * \brief Completes current tile set with new tiles.
    */
   void completeTileSet ();
+
+  /**
+   * \brief Declares a tile to be processed.
+   * @param name Added tile name.
+   */
+  void addTileName (const std::string &name);
 
   /**
    * \brief Returns the name of the tile set file.
@@ -355,8 +355,10 @@ private:
   std::string nvm_dir;
   /** TIL-formatted point tile directory name. */
   std::string til_dir;
-  /** Name of a specified tile to process. */
-  std::string spec_name;
+  /** Name of a specified tile set to process. */
+  std::string sector_name;
+  /** Names of specified tiles to process. */
+  std::vector<std::string> tile_names;
   /** Cloud access level. */
   int cloud_access;
   /** Blurred segment assigned thickness. */
@@ -401,8 +403,6 @@ private:
   std::string xyz_dir;
   /** XYZ file to be imported. */
   std::string xyz_file;
-  /** Tile to be added to current set. */
-  std::vector<std::string> added_tiles;
 
 
   /**

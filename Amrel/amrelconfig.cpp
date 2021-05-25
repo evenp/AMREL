@@ -28,10 +28,11 @@
 #define CONFIG_FILE "config.ini"
 #define DET_FILE "steps/autodet.ini"
 #define TILE_FILE_DIR "tilesets/"
-#define LAST_SET "last_set.txt"
-#define LAST_TILE "last_tile.txt"
+#define LAST_SET "last_set"
+#define LAST_TILES "last_tiles"
 #define NVM_DEFAULT_DIR "nvm/"
 #define TIL_DEFAULT_DIR "til/"
+#define TXT_SUFFIX ".txt"
 #define NVM_SUFFIX ".nvm"
 #define TIL_SUFFIX ".til"
 
@@ -64,7 +65,7 @@ AmrelConfig::AmrelConfig ()
   xyz_file = "";
   dtm_import = false;
   xyz_import = false;
-  spec_name = std::string (LAST_SET);
+  sector_name = std::string (LAST_SET);
   cloud_access = IPtTile::TOP;
   max_bs_thickness = DEFAULT_MAX_BS_THICKNESS;
   min_bs_length = DEFAULT_MIN_BS_LENGTH;
@@ -192,104 +193,117 @@ std::string AmrelConfig::tilSuffix () const
 }
 
 
-void AmrelConfig::addToSet (const std::string &name)
+void AmrelConfig::addTileName (const std::string &name)
 {
-  added_tiles.push_back (name);
-}
-
-
-void AmrelConfig::completeTileSet ()
-{
-  if (spec_name != std::string (LAST_SET))
-  {
-    std::string deftsname (TILE_FILE_DIR);
-    deftsname += std::string (spec_name);
-    std::ofstream defts (deftsname.c_str (), std::ios::app);
-    if (defts.is_open ())
-    {
-      std::vector<std::string>::iterator it = added_tiles.begin ();
-      while (it != added_tiles.end ()) defts << *it++ << std::endl;
-      defts.close ();
-    }
-    else std::cout << deftsname << " can't be opened" << std::endl;
-  }
-  else std::cout << "Tile set name missing to add tiles" << std::endl;
+  tile_names.push_back (name);
 }
 
 
 std::string AmrelConfig::tiles () const
 {
   std::string tsname (TILE_FILE_DIR);
-  tsname += std::string (LAST_SET);
+  tsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
   std::ifstream tsf (tsname.c_str (), std::ios::in);
   char text[200];
   tsf >> text;
   tsf.close ();
-  return (TILE_FILE_DIR + std::string (text));
+  return (std::string (TILE_FILE_DIR)
+          + std::string (text) + std::string (TXT_SUFFIX));
 }
 
 
 bool AmrelConfig::setTiles ()
 {
-  if (! added_tiles.empty ())
-  {
-    completeTileSet ();
-    return false;
-  }
- 
+  bool unspec = true;
   std::string tsname (TILE_FILE_DIR);
-  tsname += spec_name;
+  tsname += sector_name + std::string (TXT_SUFFIX);
   std::ifstream tsf (tsname.c_str (), std::ios::in);
   if (tsf.is_open ())
   {
     if (verbose) std::cout << "Using " << tsname << std::endl;
     char text[200];
     tsf >> text;
-    if (tsf.eof ()) 
-    {
-      std::cout << "No tile specified in " << spec_name << std::endl;
-      return false;
-    }
-    tsf.close ();
-    if (spec_name != std::string (LAST_SET))
-    {
-      std::string deftsname (TILE_FILE_DIR);
-      deftsname += std::string (LAST_SET);
-      std::ofstream defts (deftsname.c_str (), std::ios::out);
-      defts << spec_name << std::endl;
-      defts.close ();
-    }
-  }
-  else
-  {
-    if (spec_name == std::string (LAST_SET))
-    {
-      std::cout << "No tile has been specified yet" << std::endl;
-      return false;
-    }
-    std::string nvmname (nvm_dir);
-    nvmname += spec_name + NVM_SUFFIX;
-    std::ifstream tf (nvmname.c_str (), std::ios::in);
-    if (tf.is_open ())
-    {
-      tf.close ();
-      std::string deftname (TILE_FILE_DIR);
-      deftname += LAST_TILE;
-      std::ofstream deft (deftname.c_str (), std::ios::out);
-      deft << spec_name << std::endl;
-      deft.close ();
-      std::string deftsname (TILE_FILE_DIR);
-      deftsname += std::string (LAST_SET);
-      std::ofstream defts (deftsname.c_str (), std::ios::out);
-      defts << LAST_TILE << std::endl;
-      defts.close ();
-      if (verbose) std::cout << "Using " << spec_name << std::endl;
-    }
+    if (tsf.eof ()) tsf.close (); // Empty file
     else
     {
-      std::cout << spec_name << " not found" << std::endl;
+      tsf.close ();
+      if (sector_name != std::string (LAST_SET))
+      {
+        std::string deftsname (TILE_FILE_DIR);
+        deftsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
+        std::ofstream defts (deftsname.c_str (), std::ios::out);
+        defts << sector_name << std::endl;
+        defts.close ();
+        unspec = false;
+      }
+      else if (tile_names.empty ()) unspec = false;
+    }
+  }
+  if (unspec)
+  {
+    if (tile_names.empty ())
+    {
+      std::cout << "No tile specified in " << sector_name << std::endl;
       return false;
     }
+    std::vector<std::string>::iterator it = tile_names.begin ();
+    while (it != tile_names.end ())
+    {
+      std::string nvmn (NVM_DEFAULT_DIR);
+      nvmn += *it + std::string (NVM_SUFFIX);
+      std::ifstream tf (nvmn.c_str (), std::ios::in);
+      if (tf.is_open ()) tf.close ();
+      else
+      {
+        std::cout << "Unknown file " << nvmn << std::endl;
+        unspec = false;
+      }
+      std::string tiln (TIL_DEFAULT_DIR);
+      tiln += std::string (TILE_ACCESS_DIR_ECO)
+              + std::string (TILE_ACCESS_PREF_ECO)
+              + *it + std::string (TIL_SUFFIX);
+      std::ifstream ecof (tiln.c_str (), std::ios::in);
+      if (ecof.is_open ()) ecof.close ();
+      else
+      {
+        tiln = std::string (TIL_DEFAULT_DIR)
+               + std::string (TILE_ACCESS_DIR_MID)
+               + std::string (TILE_ACCESS_PREF_MID)
+               + *it + std::string (TIL_SUFFIX);
+        std::ifstream midf (tiln.c_str (), std::ios::in);
+        if (midf.is_open ()) midf.close ();
+        else
+        {
+          tiln = std::string (TIL_DEFAULT_DIR)
+                 + std::string (TILE_ACCESS_DIR_TOP)
+                 + std::string (TILE_ACCESS_PREF_TOP)
+                 + *it + std::string (TIL_SUFFIX);
+          std::ifstream topf (tiln.c_str (), std::ios::in);
+          if (topf.is_open ()) topf.close ();
+          else
+          {
+            std::cout << "Unknown til file for " << *it << std::endl;
+            unspec = false;
+          }
+        }
+      }
+      it ++;
+    }
+    if (! unspec) return false;
+    if (sector_name == std::string (LAST_SET))
+      sector_name = std::string (LAST_TILES);
+    std::string deftname (TILE_FILE_DIR);
+    deftname += sector_name + std::string (TXT_SUFFIX);
+    std::ofstream deft (deftname.c_str (), std::ios::out);
+    it = tile_names.begin ();
+    while (it != tile_names.end ()) deft << *it++ << std::endl;
+    deft.close ();
+    std::string deftsname (TILE_FILE_DIR);
+    deftsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
+    std::ofstream defts (deftsname.c_str (), std::ios::out);
+    defts << sector_name << std::endl;
+    defts.close ();
+    if (verbose) std::cout << "Using " << sector_name << std::endl;
   }
   return true;
 }
@@ -297,14 +311,14 @@ bool AmrelConfig::setTiles ()
 
 std::string AmrelConfig::inputName () const
 {
-  return spec_name;
+  return sector_name;
 }
 
 
 bool AmrelConfig::setInputName (std::string name)
 {
-  if (spec_name != std::string (LAST_SET)) return false;
-  spec_name = name;
+  if (sector_name != std::string (LAST_SET)) return false;
+  sector_name = name;
   return true;
 }
 
@@ -402,7 +416,7 @@ void AmrelConfig::saveDetectorStatus () const
   std::ofstream output (DET_FILE, std::ios::out);
   output << "[AMREL]" << std::endl;
   output << "Version=" << VERSION << std::endl;
-  output << "Tile=" << spec_name << std::endl;
+  output << "Tile=" << sector_name << std::endl;
   output << "MaxBSThickness=" << max_bs_thickness << std::endl;
   output << "MinBSLength=" << min_bs_length << std::endl;
   output << "SeedShift=" << seed_shift << std::endl;
@@ -491,11 +505,11 @@ bool AmrelConfig::importDtm ()
     std::cout << "Tile set assembling failed" << std::endl;
     return false;
   }
-  if (spec_name == std::string (LAST_SET))
-    spec_name = dtm_files[0].substr (0, dtm_files[0].find_last_of ('.'));
-  tm.saveFirstNormalMap (std::string ("nvm/")
-                         + spec_name + std::string (".nvm"));
-  if (verbose) std::cout << "Saved " << std::string ("nvm/") << spec_name
+  std::string tn (tile_names.empty () ?
+                  dtm_files[0].substr (0, dtm_files[0].find_last_of ('.')) :
+                  tile_names[0]);
+  tm.saveFirstNormalMap (std::string ("nvm/") + tn + std::string (".nvm"));
+  if (verbose) std::cout << "Saved " << std::string ("nvm/") << tn
                          << std::string (".nvm") << std::endl;
   return true;
 }
@@ -503,15 +517,15 @@ bool AmrelConfig::importDtm ()
 
 bool AmrelConfig::importXyz ()
 {
-  if (spec_name == std::string (LAST_SET))
-    spec_name = xyz_file.substr (0, xyz_file.find_last_of ('.'));
-
+  std::string tn (tile_names.empty () ?
+                  xyz_file.substr (0, xyz_file.find_last_of ('.')) :
+                  tile_names[0]);
   TerrainMap tm;
   if (! tm.loadNormalMapInfo (std::string ("nvm/")
-                              + spec_name + std::string (".nvm")))
+                              + tn + std::string (".nvm")))
   {
     std::cout << "Can't read tile features in "
-              << std::string ("nvm/") << spec_name << std::string (".nvm")
+              << std::string ("nvm/") << tn << std::string (".nvm")
               << " file" << std::endl;
     return false;
   }
@@ -531,11 +545,11 @@ bool AmrelConfig::importXyz ()
   }
   std::string sname ("til/");
   if (cloud_access == IPtTile::TOP)
-    sname += std::string ("top/top_") + spec_name + std::string (".til");
+    sname += std::string ("top/top_") + tn + std::string (".til");
   else if (cloud_access == IPtTile::MID)
-    sname += std::string ("mid/mid_") + spec_name + std::string (".til");
+    sname += std::string ("mid/mid_") + tn + std::string (".til");
   else if (cloud_access == IPtTile::ECO)
-    sname += std::string ("eco/eco_") + spec_name + std::string (".til");
+    sname += std::string ("eco/eco_") + tn + std::string (".til");
   tile.save (sname);
 
   return true;

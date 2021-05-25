@@ -561,7 +561,7 @@ bool AmrelTool::processAsd ()
     while (k != -1)
     {
       if (cfg.isVerboseOn ())
-        std::cout << "TILE K" << k << " (" << k % cot << ", " << k / cot
+        std::cout << "  --> Tile " << k << " (" << k % cot << ", " << k / cot
                   << ") : " << out_seeds[k].size () << " seeds" << std::endl;
       it = out_seeds[k].begin ();
       while (it != out_seeds[k].end ())
