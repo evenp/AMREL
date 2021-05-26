@@ -7,6 +7,8 @@ The road extraction is performed in two steps:
 * seeds production using LiDAR derived digital terrain model (DTM) tiles,
 * road detection using LiDAR raw data (ground 3D points).
 
+![Figure](steps/example.png?raw=true)
+
 Authors: Philippe Even and Phuc Ngo, LORIA/ADAGIo, Université de Lorraine.
 
 Reference : Even, P. and Ngo, P., 2021.
