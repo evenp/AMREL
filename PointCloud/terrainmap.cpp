@@ -35,6 +35,7 @@ const int TerrainMap::DEFAULT_PAD_SIZE = 3;
 
 const float TerrainMap::RELIEF_AMPLI = 5.0f;
 const float TerrainMap::LIGHT_ANGLE_INCREMENT = 0.03f;
+const std::string TerrainMap::NVM_SUFFIX = std::string (".nvm");
 
 
 TerrainMap::TerrainMap ()
@@ -429,9 +430,6 @@ bool TerrainMap::loadDtmMapInfo (const std::string &name)
   dtmf.close ();
   x_min = (double) ((int) xllc); // to remove the shift found in asc files ...
   y_min = (double) ((int) yllc);
-std::cout << "TW = " << twidth << " et TH = " << theight << std::endl;
-std::cout << "xmin = " << x_min << " et ymin = " << y_min << std::endl;
-std::cout << "CS = " << cell_size << std::endl;
   iwidth = twidth;
   iheight = theight;
   return true;

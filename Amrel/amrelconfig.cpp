@@ -1,3 +1,24 @@
+/*  Copyright 2021 Philippe Even and Phuc Ngo,
+      authors of paper:
+      Even, P., and Ngo, P., 2021,
+      Automatic forest road extraction fromLiDAR data of mountainous areas.
+      In the First International Joint Conference of Discrete Geometry
+      and Mathematical Morphology (Springer LNCS 12708), pp. 93-106.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #include <iostream>
 #include <fstream>
 #include "amrelconfig.h"
@@ -12,11 +33,9 @@
 #define NVM_DEFAULT_DIR "nvm/"
 #define TIL_DEFAULT_DIR "til/"
 #define TXT_SUFFIX ".txt"
-#define NVM_SUFFIX ".nvm"
-#define TIL_SUFFIX ".til"
 
 
-const std::string AmrelConfig::VERSION = "1.1.0";
+const std::string AmrelConfig::VERSION = "1.1.1";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
@@ -144,31 +163,16 @@ std::string AmrelConfig::nvmDir () const
 }
 
 
-std::string AmrelConfig::nvmSuffix () const
-{
-  return (std::string (NVM_SUFFIX));
-}
-
-
 std::string AmrelConfig::tilPrefix () const
 {
   std::string tfile (til_dir);
   if (cloud_access == IPtTile::TOP)
-    tfile += std::string (TILE_ACCESS_DIR_TOP)
-             + std::string (TILE_ACCESS_PREF_TOP);
+    tfile += IPtTile::TOP_DIR + IPtTile::TOP_PREFIX;
   else if (cloud_access == IPtTile::MID)
-    tfile += std::string (TILE_ACCESS_DIR_MID)
-             + std::string (TILE_ACCESS_PREF_MID);
+    tfile += IPtTile::MID_DIR + IPtTile::MID_PREFIX;
   else if (cloud_access == IPtTile::ECO)
-    tfile += std::string (TILE_ACCESS_DIR_ECO)
-             + std::string (TILE_ACCESS_PREF_ECO);
+    tfile += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX;
   return tfile;
-}
-
-
-std::string AmrelConfig::tilSuffix () const
-{
-  return (std::string (TIL_SUFFIX));
 }
 
 
@@ -229,7 +233,7 @@ bool AmrelConfig::setTiles ()
     while (it != tile_names.end ())
     {
       std::string nvmn (NVM_DEFAULT_DIR);
-      nvmn += *it + std::string (NVM_SUFFIX);
+      nvmn += *it + TerrainMap::NVM_SUFFIX;
       std::ifstream tf (nvmn.c_str (), std::ios::in);
       if (tf.is_open ()) tf.close ();
       else
@@ -238,25 +242,22 @@ bool AmrelConfig::setTiles ()
         unspec = false;
       }
       std::string tiln (TIL_DEFAULT_DIR);
-      tiln += std::string (TILE_ACCESS_DIR_ECO)
-              + std::string (TILE_ACCESS_PREF_ECO)
-              + *it + std::string (TIL_SUFFIX);
+      tiln += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
+              + *it + IPtTile::TIL_SUFFIX;
       std::ifstream ecof (tiln.c_str (), std::ios::in);
       if (ecof.is_open ()) ecof.close ();
       else
       {
         tiln = std::string (TIL_DEFAULT_DIR)
-               + std::string (TILE_ACCESS_DIR_MID)
-               + std::string (TILE_ACCESS_PREF_MID)
-               + *it + std::string (TIL_SUFFIX);
+               + IPtTile::MID_DIR + IPtTile::MID_PREFIX
+               + *it + IPtTile::TIL_SUFFIX;
         std::ifstream midf (tiln.c_str (), std::ios::in);
         if (midf.is_open ()) midf.close ();
         else
         {
           tiln = std::string (TIL_DEFAULT_DIR)
-                 + std::string (TILE_ACCESS_DIR_TOP)
-                 + std::string (TILE_ACCESS_PREF_TOP)
-                 + *it + std::string (TIL_SUFFIX);
+                 + IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+                 + *it + IPtTile::TIL_SUFFIX;
           std::ifstream topf (tiln.c_str (), std::ios::in);
           if (topf.is_open ()) topf.close ();
           else
@@ -544,17 +545,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
   if (cloud_access == IPtTile::ECO)
   {
     std::string oldname (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_MID)
-               + std::string (TILE_ACCESS_PREF_MID)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::MID_DIR + IPtTile::MID_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     IPtTile *oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_ECO)
-                 + std::string (TILE_ACCESS_PREF_ECO)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::MID) / IPtTile::ECO,
                      (oldt->countOfRows () * IPtTile::MID) / IPtTile::ECO);
@@ -567,17 +566,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
       return true;
     }
     oldname = std::string (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_TOP)
-               + std::string (TILE_ACCESS_PREF_TOP)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_ECO)
-                 + std::string (TILE_ACCESS_PREF_ECO)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::TOP) / IPtTile::ECO,
                      (oldt->countOfRows () * IPtTile::TOP) / IPtTile::ECO);
@@ -594,17 +591,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
   else if (cloud_access == IPtTile::MID)
   {
     std::string oldname (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_TOP)
-               + std::string (TILE_ACCESS_PREF_TOP)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     IPtTile *oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_MID)
-                 + std::string (TILE_ACCESS_PREF_MID)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::MID_DIR + IPtTile::MID_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::TOP) / IPtTile::MID,
                      (oldt->countOfRows () * IPtTile::TOP) / IPtTile::MID);
@@ -617,17 +612,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
       return true;
     }
     oldname = std::string (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_ECO)
-               + std::string (TILE_ACCESS_PREF_ECO)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_MID)
-                 + std::string (TILE_ACCESS_PREF_MID)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::MID_DIR + IPtTile::MID_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::ECO) / IPtTile::MID,
                      (oldt->countOfRows () * IPtTile::ECO) / IPtTile::MID);
@@ -644,17 +637,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
   else
   {
     std::string oldname (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_MID)
-               + std::string (TILE_ACCESS_PREF_MID)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::MID_DIR + IPtTile::MID_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     IPtTile *oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_TOP)
-                 + std::string (TILE_ACCESS_PREF_TOP)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::MID) / IPtTile::TOP,
                      (oldt->countOfRows () * IPtTile::MID) / IPtTile::TOP);
@@ -667,17 +658,15 @@ bool AmrelConfig::createAltXyz (const std::string &name)
       return true;
     }
     oldname = std::string (til_dir);
-    oldname += std::string (TILE_ACCESS_DIR_ECO)
-               + std::string (TILE_ACCESS_PREF_ECO)
-               + name + std::string (TIL_SUFFIX);
+    oldname += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
+               + name + IPtTile::TIL_SUFFIX;
     oldt = new IPtTile (oldname);
     if (oldt->load ())
     {
       if (verbose) std::cout << "Creating from " << oldname << std::endl;
       std::string newname (til_dir);
-      newname += std::string (TILE_ACCESS_DIR_TOP)
-                 + std::string (TILE_ACCESS_PREF_TOP)
-                 + name + std::string (TIL_SUFFIX);
+      newname += IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+                 + name + IPtTile::TIL_SUFFIX;
       IPtTile *newt = new IPtTile (newname);
       newt->setSize ((oldt->countOfColumns () * IPtTile::ECO) / IPtTile::TOP,
                      (oldt->countOfRows () * IPtTile::ECO) / IPtTile::TOP);

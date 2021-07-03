@@ -77,19 +77,9 @@ public:
   std::string nvmDir () const;
 
   /**
-   * \brief Returns NVM suffix name.
-   */
-  std::string nvmSuffix () const;
-
-  /**
    * \brief Returns TIL directory name.
    */
   std::string tilPrefix () const;
-
-  /**
-   * \brief Returns TIL suffix name.
-   */
-  std::string tilSuffix () const;
 
   /**
    * \brief Completes current tile set with new tiles.
