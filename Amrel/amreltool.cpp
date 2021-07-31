@@ -534,7 +534,7 @@ bool AmrelTool::processAsd ()
   int num = 0;
   int unused = 0;
   count_of_roads = 0;
-  if (! tile_loaded)
+  if (cfg.bufferSize () == 0 && ! tile_loaded)
   {
     if (ptset->loadPoints ()) tile_loaded = true;
     else
