@@ -69,9 +69,13 @@ int main (int argc, char *argv[])
       }
       else if (string(argv[i]) == string ("--buf"))
       {
-
         if (i == argc - 1
             || ! autodet.config()->setBufferSize (atoi (argv[++i]))) return 0;
+      }
+      else if (string(argv[i]) == string ("--tail"))
+      {
+        if (i == argc - 1
+            || ! autodet.config()->setTailMinSize (atoi (argv[++i]))) return 0;
       }
       else if (string(argv[i]) == string ("--hill"))
         autodet.config()->setHillMap (true);
@@ -83,6 +87,8 @@ int main (int argc, char *argv[])
         autodet.config()->setBackDtm (true);
       else if (string(argv[i]) == string ("--unconnected"))
         autodet.config()->setConnected (false);
+      else if (string(argv[i]) == string ("--half"))
+        autodet.config()->setHalfSizeSeeds ();
       else if (string(argv[i]) == string ("--bsminlength"))
       {
         if (i != argc - 1)

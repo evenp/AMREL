@@ -24,8 +24,6 @@
 #include <chrono>
 #include "amreltimer.h"
 
-#define PERF_FILE "perf.txt"
-
 
 const int AmrelTimer::NO_TEST = 0;
 const int AmrelTimer::FULL = 1;
@@ -191,7 +189,8 @@ void AmrelTimer::performanceTest (bool with_load)
     std::cout << "Amrel: " << time_span.count () << " s" << std::endl;
   }
 
-  std::ofstream output (PERF_FILE, std::ios::out);
+  std::string name (AmrelConfig::PERF_FILE + AmrelConfig::TEXT_SUFFIX);
+  std::ofstream output (name.c_str (), std::ios::out);
   output << "rorpo: " << m_rorpo / test_count << " s ("
          << 100 * m_rorpo / m_amrel << " %) " << std::endl;
   output << "fbsd: " << m_fbsd / test_count << " s ("

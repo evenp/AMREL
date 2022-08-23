@@ -48,6 +48,8 @@ public:
   static const int RESULT_FAIL_NO_CENTRAL_PLATEAU;
   /** Extraction failure : no long enough sequence of plateaux. */
   static const int RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
+  /** Extraction failure : no bounds for the section plateaux. */
+  static const int RESULT_FAIL_NO_BOUNDS;
   /** Extraction failure : maximal track absolute shift length. */
   static const int RESULT_FAIL_TOO_HECTIC_PLATEAUX;
   /** Extraction failure : minimal plateaux density not fillfiled. */
@@ -79,6 +81,11 @@ public:
    * \brief Clears stored detected feature.
    */
   void clear ();
+
+  /**
+   * \brief Avoids former detection clearance.
+   */
+  void preserveDetection ();
 
   /**
    * \brief Returns the profile model used.
@@ -180,17 +187,6 @@ public:
     return (initial_track_extent != 0); }
 
   /**
-   * \brief Returns the status of tail plateaux pruning modality.
-   */
-  inline int tailPruning () const { return tail_pruning; }
-
-  /**
-   * \brief Toggles the tail plateaux pruning modality.
-   */
-  inline void switchTailPruning () {
-    if (++tail_pruning == 3) tail_pruning = 0; }
-
-  /**
    * \brief Returns the status of track absolute shift length pruning modality.
    */
   inline bool isShiftLengthPruning () const { return shift_length_pruning; }
@@ -273,7 +269,7 @@ private :
   /** Default accepted count of successive plateau detection failures. */
   static const int DEFAULT_PLATEAU_LACK_TOLERANCE;
   /** Default tolered lack of both bounds detection. */
-  static const int DEFAULT_NOBOUNDS_TOLERANCE;
+  static const int NOBOUNDS_TOLERANCE;
   /** Initial track extent on each side of the central plateau. */
   static const int INITIAL_TRACK_EXTENT;
   /** Default count of registered center positions and heights. */
@@ -312,14 +308,10 @@ private :
   PlateauModel pfeat;
   /** Tolered successive failures of plateaux detection. */
   int plateau_lack_tolerance;
-  /** Accepted count of successive plateau detection failures. */
-  int nobounds_tolerance;
   /** Initial track extent on each side of the central plateau. */
   int initial_track_extent;
   /** Indicates if point density is considered for tracking. */
   bool density_insensitive;
-  /** Tail plateaux pruning modality. */
-  int tail_pruning;
   /** Track absolute shift length pruning modality. */
   bool shift_length_pruning;
   /** Maximal track absolute shift length accepted. */
@@ -345,8 +337,6 @@ private :
   Pt2i ip1;
   /** Initial stroke second input point in DTM pixels. */
   Pt2i ip2;
-  /** Current distance in meters between input points. */
-  float l12;
 
   /** Position and height register size. */
   int posht_nb;

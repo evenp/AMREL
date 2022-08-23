@@ -25,23 +25,6 @@
 #include "rorpo.hpp"
 #include "image_png.hpp"
 
-#define SHADE_FILE "steps/shade.map"
-#define RORPO_FILE "steps/rorpo.map"
-#define SOBEL_FILE "steps/sobel.map"
-#define FBSD_FILE "steps/fbsd.dss"
-#define SEEDS_FILE "steps/seeds.pts"
-#define STROKE_FILE "steps/autodet.txt"
-#define TRACK_FILE "steps/roads.amr"
-#define PERF_FILE "perf.txt"
-
-#define HILL_IMAGE "steps/hill.png"
-#define SHADE_IMAGE "steps/shade.png"
-#define RORPO_IMAGE "steps/rorpo.png"
-#define SOBEL_IMAGE "steps/sobel.png"
-#define FBSD_IMAGE "steps/fbsd.png"
-#define SEEDS_IMAGE "steps/seeds.png"
-#define ASD_IMAGE "steps/roads.png"
-
 
 const int AmrelTool::NOMINAL_PLATEAU_LACK_TOLERANCE = 5;
 const int AmrelTool::NOMINAL_PLATEAU_MAX_TILT = 10;
@@ -173,6 +156,8 @@ void AmrelTool::addTrackDetector ()
   ctdet->model()->setSlopeTolerance (NOMINAL_SLOPE_TOLERANCE);
   ctdet->model()->setSideShiftTolerance (NOMINAL_SIDE_SHIFT_TOLERANCE);
   ctdet->model()->setBSmaxTilt (NOMINAL_PLATEAU_MAX_TILT);
+  if (cfg.tailMinSizeDefined ())
+    ctdet->model()->setTailMinSize (cfg.tailMinSize ());
   if (ptset != NULL)
     ctdet->setPointsGrid (ptset, vm_width, vm_height, sub_div, csize);
   cfg.setDetector (ctdet);
@@ -531,6 +516,7 @@ void AmrelTool::processSeeds (int kref)
 bool AmrelTool::processAsd ()
 {
   if (cfg.isVerboseOn ()) std::cout << "ASD ..." << std::endl;
+  road_sections.clear ();
   int num = 0;
   int unused = 0;
   count_of_roads = 0;
@@ -588,6 +574,11 @@ bool AmrelTool::processAsd ()
                   = (unsigned short) count_of_roads;
               pit ++;
             }
+            if (cfg.isExportOn ())
+            {
+              road_sections.push_back (ct);
+              ctdet->preserveDetection ();
+            }
           }
         }
         num ++;
@@ -634,6 +625,11 @@ bool AmrelTool::processAsd ()
                 track_map[(vm_height - 1 - pit->y ()) * vm_width + pit->x ()]
                   = (unsigned short) count_of_roads;
                 pit ++;
+              }
+              if (cfg.isExportOn ())
+              {
+                road_sections.push_back (ct);
+                ctdet->preserveDetection ();
               }
             }
           }
@@ -763,10 +759,12 @@ bool AmrelTool::processSawing ()
 
 bool AmrelTool::saveShadingMap ()
 {
-  std::ofstream shading_out (SHADE_FILE, std::ios::out);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ofstream shading_out (name.c_str (), std::ios::out);
   if (! shading_out)
   {
-    std::cout << "Can't save shaded-DTM in " << SHADE_FILE << std::endl;
+    std::cout << "Can't save shaded-DTM in " << name << std::endl;
     return false;
   }
   shading_out.write ((char *) (&vm_width), sizeof (int));
@@ -782,10 +780,12 @@ bool AmrelTool::saveShadingMap ()
 
 bool AmrelTool::loadShadingMap ()
 {
-  std::ifstream shading_in (SHADE_FILE, std::ios::in);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ifstream shading_in (name.c_str (), std::ios::in);
   if (! shading_in)
   {
-    std::cout << SHADE_FILE << ": can't be opened" << std::endl;
+    std::cout << name << ": can't be opened" << std::endl;
     return false;
   }
   shading_in.read ((char *) (&vm_width), sizeof (int));
@@ -801,10 +801,12 @@ bool AmrelTool::loadShadingMap ()
 
 bool AmrelTool::saveRorpoMap ()
 {
-  std::ofstream rorpo_out (RORPO_FILE, std::ios::out);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::RORPO_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ofstream rorpo_out (name.c_str (), std::ios::out);
   if (! rorpo_out)
   {
-    std::cout << "Can't save Rorpo map in " << RORPO_FILE << std::endl;
+    std::cout << "Can't save Rorpo map in " << name << std::endl;
     return false;
   }
   rorpo_out.write ((char *) (&vm_width), sizeof (int));
@@ -820,10 +822,12 @@ bool AmrelTool::saveRorpoMap ()
 
 bool AmrelTool::loadRorpoMap ()
 {
-  std::ifstream rorpo_in (RORPO_FILE, std::ios::in);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::RORPO_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ifstream rorpo_in (name.c_str (), std::ios::in);
   if (! rorpo_in)
   {
-    std::cout << RORPO_FILE << ": can't be opened" << std::endl;
+    std::cout << name << ": can't be opened" << std::endl;
     return false;
   }
   rorpo_in.read ((char *) (&vm_width), sizeof (int));
@@ -839,10 +843,12 @@ bool AmrelTool::loadRorpoMap ()
 
 bool AmrelTool::saveSobelMap ()
 {
-  std::ofstream sobel_out (SOBEL_FILE, std::ios::out);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SOBEL_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ofstream sobel_out (name.c_str (), std::ios::out);
   if (! sobel_out)
   {
-    std::cout << "Can't save Sobel map in " << SOBEL_FILE << std::endl;
+    std::cout << "Can't save Sobel map in " << name << std::endl;
     return false;
   }
   sobel_out.write ((char *) (&vm_width), sizeof (int));
@@ -857,10 +863,12 @@ bool AmrelTool::saveSobelMap ()
 
 bool AmrelTool::loadSobelMap ()
 {
-  std::ifstream sobel_in (SOBEL_FILE, std::ios::in);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SOBEL_FILE
+                    + AmrelConfig::MAP_SUFFIX);
+  std::ifstream sobel_in (name.c_str (), std::ios::in);
   if (! sobel_in)
   {
-    std::cout << SOBEL_FILE << ": can't be opened" << std::endl;
+    std::cout << name << ": can't be opened" << std::endl;
     return false;
   }
   sobel_in.read ((char *) (&vm_width), sizeof (int));
@@ -877,10 +885,12 @@ bool AmrelTool::loadSobelMap ()
 
 bool AmrelTool::saveFbsdSegments ()
 {
-  std::ofstream fbsd_out (FBSD_FILE, std::ios::out);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE
+                    + AmrelConfig::FBSD_SUFFIX);
+  std::ofstream fbsd_out (name.c_str (), std::ios::out);
   if (! fbsd_out)
   {
-    std::cout << "Can't save FBSD segments in " << FBSD_FILE << std::endl;
+    std::cout << "Can't save FBSD segments in " << name << std::endl;
     return false;
   }
   fbsd_out.write ((char *) (&vm_width), sizeof (int));
@@ -901,10 +911,12 @@ bool AmrelTool::saveFbsdSegments ()
 
 bool AmrelTool::loadFbsdSegments ()
 {
-  std::ifstream fbsd_in (FBSD_FILE, std::ios::in);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE
+                    + AmrelConfig::FBSD_SUFFIX);
+  std::ifstream fbsd_in (name.c_str (), std::ios::in);
   if (! fbsd_in)
   {
-    std::cout << FBSD_FILE << ": can't be opened" << std::endl;
+    std::cout << name << ": can't be opened" << std::endl;
     return false;
   }
   fbsd_in.read ((char *) (&vm_width), sizeof (int));
@@ -924,33 +936,106 @@ bool AmrelTool::loadFbsdSegments ()
 
 bool AmrelTool::saveSeeds ()
 {
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SEED_FILE
+                    + AmrelConfig::SEED_SUFFIX);
   if (cfg.isVerboseOn ())
-    std::cout << "Saving seeds in " << SEEDS_FILE << std::endl;
-  std::ofstream seeds_out (SEEDS_FILE, std::ios::out);
+    std::cout << "Saving seeds in " << name << std::endl;
+  std::ofstream seeds_out (name.c_str (), std::ios::out);
   if (! seeds_out)
   {
-    std::cout << "Can't save seeds in " << SEEDS_FILE << std::endl;
+    std::cout << "Can't save seeds in " << name << std::endl;
     return false;
   }
   int nb = 0, rot = ptset->rowsOfTiles (), cot = ptset->columnsOfTiles ();
-  seeds_out.write ((char *) (&vm_width), sizeof (int));
-  seeds_out.write ((char *) (&vm_height), sizeof (int));
-  seeds_out.write ((char *) (&csize), sizeof (float));
-  seeds_out.write ((char *) (&cot), sizeof (int));
-  seeds_out.write ((char *) (&rot), sizeof (int));
-  for (int i = 0; i < cot * rot; i++) nb += (int) (out_seeds[i].size ());
-  seeds_out.write ((char *) (&nb), sizeof (int));
-  std::vector<Pt2i>::iterator it;
-  for (int j = 0; j < rot; j++)
+  int vmw = vm_width, vmh = vm_height, vmc = cot, vmr = rot;
+  float vms = csize;
+  if (cfg.isHalfSizeSeedsOn ())
   {
-    for (int i = 0; i < cot; i ++)
+    vmw *= 2;
+    vmh *= 2;
+    vmc *= 2;
+    vmr *= 2;
+    vms /= 2;
+  }
+  seeds_out.write ((char *) (&vmw), sizeof (int));
+  seeds_out.write ((char *) (&vmh), sizeof (int));
+  seeds_out.write ((char *) (&vms), sizeof (float));
+  seeds_out.write ((char *) (&vmc), sizeof (int));
+  seeds_out.write ((char *) (&vmr), sizeof (int));
+  if (cfg.isHalfSizeSeedsOn ())
+  {
+    int kx = -1, ky = -1;
+    int tw = vm_width / (2 * cot);
+    int th = vm_height / (2 * rot);
+    std::vector<Pt2i> *reseeds = new std::vector<Pt2i>[rot * cot * 4];
+    std::vector<Pt2i>::iterator it;
+    int numk = 0, outl = 0;
+    for (int j = 0; j < rot; j++)
     {
-      int k = j * cot + ((j % 2 != 0) ? cot - 1 - i : i);
-      it = out_seeds[k].begin ();
-      while (it != out_seeds[k].end ())
+      for (int i = 0; i < cot; i ++)
       {
-        Pt2i pt (*it++);
-        seeds_out.write ((char *) &pt, sizeof (Pt2i));
+        it = out_seeds[numk].begin ();
+        while (it != out_seeds[numk].end ())
+        {
+          Pt2i pt1 (*it++);
+          Pt2i pt2 (*it++);
+          kx = ((pt1.x () + pt2.x ()) / 2) / tw;
+          ky = ((pt1.y () + pt2.y ()) / 2) / th;
+          if (kx < 0 || ky < 0 || kx >= 2 * cot || ky >= 2 * rot) outl ++;
+          else
+          {
+            pt1.set (pt1.x () * 2, pt1.y () * 2);
+            pt2.set (pt2.x () * 2, pt2.y () * 2);
+            if (pt2.x () < pt1.x ()) pt1.set (pt1.x () + 1, pt1.y ());
+            else pt2.set (pt2.x () + 1, pt2.y ());
+            if (pt2.y () < pt1.y ()) pt1.set (pt1.x (), pt1.y () + 1);
+            else pt2.set (pt2.x (), pt2.y () + 1);
+            reseeds[ky * cot * 2 + kx].push_back (pt1);
+            reseeds[ky * cot * 2 + kx].push_back (pt2);
+          }
+        }
+        numk ++;
+      }
+    }
+    if (outl != 0) std::cout << outl << " ousiders when retiling" << std::endl;
+    for (int i = 0; i < cot * rot * 4; i++) nb += (int) (reseeds[i].size ());
+    seeds_out.write ((char *) (&nb), sizeof (int));
+    numk = 0;
+    for (int j = 0; j < rot * 2; j++)
+    {
+      for (int i = 0; i < cot * 2; i ++)
+      {
+        it = reseeds[numk].begin ();
+        while (it != reseeds[numk].end ())
+        {
+          Pt2i pt1 (*it++);
+          Pt2i pt2 (*it++);
+          seeds_out.write ((char *) &pt1, sizeof (Pt2i));
+          seeds_out.write ((char *) &pt2, sizeof (Pt2i));
+        }
+        numk ++;
+      }
+    }
+    delete [] reseeds;
+  }
+  else
+  {
+    for (int i = 0; i < cot * rot; i++) nb += (int) (out_seeds[i].size ());
+    seeds_out.write ((char *) (&nb), sizeof (int));
+    std::vector<Pt2i>::iterator it;
+    for (int j = 0; j < rot; j++)
+    {
+      for (int i = 0; i < cot; i ++)
+      {
+        int k = j * cot + ((j % 2 != 0) ? cot - 1 - i : i);
+        it = out_seeds[k].begin ();
+        while (it != out_seeds[k].end ())
+        {
+          Pt2i pt1 (*it++);
+          Pt2i pt2 (*it++);
+          seeds_out.write ((char *) &pt1, sizeof (Pt2i));
+          seeds_out.write ((char *) &pt2, sizeof (Pt2i));
+        }
       }
     }
   }
@@ -961,14 +1046,16 @@ bool AmrelTool::saveSeeds ()
 
 bool AmrelTool::loadSeeds ()
 {
-  std::ifstream seeds_in (SEEDS_FILE, std::ios::in);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SEED_FILE
+                    + AmrelConfig::SEED_SUFFIX);
+  std::ifstream seeds_in (name.c_str (), std::ios::in);
   if (! seeds_in)
   {
-    std::cout << SEEDS_FILE << ": can't be opened" << std::endl;
+    std::cout << name << ": can't be opened" << std::endl;
     return false;
   }
   if (cfg.isVerboseOn ())
-    std::cout << "Loading seeds from " << SEEDS_FILE << std::endl;
+    std::cout << "Loading seeds from " << name << std::endl;
   int tsw = 1, tsh = 1, nb = 0;
   seeds_in.read ((char *) (&vm_width), sizeof (int));
   seeds_in.read ((char *) (&vm_height), sizeof (int));
@@ -1030,7 +1117,9 @@ void AmrelTool::checkSeeds ()
 
 void AmrelTool::saveSuccessfulSeeds ()
 {
-  std::ofstream output (STROKE_FILE, std::ios::out);
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::SUCCESS_SEED_FILE
+                    + AmrelConfig::TEXT_SUFFIX);
+  std::ofstream output (name.c_str (), std::ios::out);
   std::vector<Pt2i>::const_iterator it;
   int cot = ptset->columnsOfTiles ();
   int rot = ptset->rowsOfTiles ();
@@ -1053,7 +1142,7 @@ void AmrelTool::saveSuccessfulSeeds ()
   }
   output.close ();
   if (cfg.isVerboseOn ())
-    std::cout << "Seeds saved in strokes/sucseeds.txt" << std::endl;
+    std::cout << "Successful seeds saved in " << name << std::endl;
 }
 
 
@@ -1069,7 +1158,8 @@ void AmrelTool::saveHillImage ()
       else if (val < 0) val = 0;
       im (i, j) = (unsigned char) val;
     }
-  write_2D_png_image (im, std::string (HILL_IMAGE));
+  write_2D_png_image (im, AmrelConfig::RES_DIR + AmrelConfig::HILL_FILE
+                          + AmrelConfig::IM_SUFFIX);
   clear ();
 }
 
@@ -1080,13 +1170,15 @@ void AmrelTool::saveShadingImage ()
   for (int j = 0; j < vm_height; j ++)
     for (int i = 0; i < vm_width; i ++)
       im (i, j) = (unsigned char) dtm_in->get (i, j, TerrainMap::SHADE_SLOPE);
-  write_2D_png_image (im, std::string (SHADE_IMAGE));
+  write_2D_png_image (im, AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
+                          + AmrelConfig::IM_SUFFIX);
 }
 
 
 void AmrelTool::saveRorpoImage ()
 {
-  write_2D_png_image (*rorpo_map, std::string (RORPO_IMAGE));
+  write_2D_png_image (*rorpo_map, AmrelConfig::RES_DIR
+                      + AmrelConfig::RORPO_FILE + AmrelConfig::IM_SUFFIX);
 }
 
 
@@ -1110,7 +1202,8 @@ void AmrelTool::saveSobelImage ()
   for (int j = 0; j < h; j++)
     for (int i = 0; i < w; i++)
       *pim++ = (unsigned char) ((gn[j * w + i] - min) * 255 / (max - min));
-  write_2D_png_image (im, std::string (SOBEL_IMAGE));
+  write_2D_png_image (im, AmrelConfig::RES_DIR + AmrelConfig::SOBEL_FILE
+                          + AmrelConfig::IM_SUFFIX);
 }
 
 
@@ -1162,7 +1255,8 @@ void AmrelTool::saveFbsdImage (int im_w, int im_h)
       }
       it ++;
     }
-    write_2D_png_color_image (im, std::string (FBSD_IMAGE));
+    write_2D_png_color_image (im,
+      AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE + AmrelConfig::IM_SUFFIX);
   }
   else
   {
@@ -1195,7 +1289,8 @@ void AmrelTool::saveFbsdImage (int im_w, int im_h)
       }
       it ++;
     }
-    write_2D_png_image (im, std::string (FBSD_IMAGE));
+    write_2D_png_image (im,
+      AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE + AmrelConfig::IM_SUFFIX);
   }
 }
 
@@ -1249,7 +1344,8 @@ void AmrelTool::saveSeedsImage ()
       }
     }
   }
-  write_2D_png_image (im, std::string (SEEDS_IMAGE));
+  write_2D_png_image (im, AmrelConfig::RES_DIR + AmrelConfig::SEED_FILE
+                          + AmrelConfig::IM_SUFFIX);
 }
 
 
@@ -1300,7 +1396,8 @@ void AmrelTool::saveAsdImage ()
       pim++;
       map++;
     }
-    write_2D_png_color_image (im, std::string (ASD_IMAGE));
+    write_2D_png_color_image (im,
+      AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
   }
   else
   {
@@ -1323,6 +1420,7 @@ void AmrelTool::saveAsdImage ()
       pim++;
       map++;
     }
-    write_2D_png_image (im, std::string (ASD_IMAGE));
+    write_2D_png_image (im,
+      AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
   }
 }

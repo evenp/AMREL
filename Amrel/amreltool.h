@@ -344,6 +344,8 @@ private:
   CTrackDetector *ctdet;
   /** Number of detected mountain road sections. */
   int count_of_roads;
+  /** List of detected road sections. */
+  std::vector<CarriageTrack *> road_sections;
 
 
 };

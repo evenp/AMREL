@@ -55,6 +55,62 @@ public:
   /** Road detection step: from shading up to seeds generation. */
   static const int STEP_SAWING;
 
+  /** Name of output directory. */
+  static const std::string RES_DIR;
+  /** Name of tile set directory. */
+  static const std::string TSET_DIR;
+  /** Name of default terrain map directory. */
+  static const std::string NVM_DEFAULT_DIR;
+  /** Name of default point tile directory. */
+  static const std::string TIL_DEFAULT_DIR;
+
+  /** Name of AMREL configuration file. */
+  static const std::string CONFIG_FILE;
+  /** Name of detector parameters file. */
+  static const std::string DETECTOR_FILE;
+  /** Name of last set file. */
+  static const std::string LAST_SET_FILE;
+  /** Name of last tiles file. */
+  static const std::string LAST_TILES_FILE;
+  /** Name of performance result file. */
+  static const std::string PERF_FILE;
+
+  /** Name of hill-shading file. */
+  static const std::string HILL_FILE;
+  /** Name of slope-shading file. */
+  static const std::string SLOPE_FILE;
+  /** Name of RORPO file. */
+  static const std::string RORPO_FILE;
+  /** Name of Sobel file. */
+  static const std::string SOBEL_FILE;
+  /** Name of FBSD digital straight segment file. */
+  static const std::string FBSD_FILE;
+  /** Name of seed file. */
+  static const std::string SEED_FILE;
+  /** Name of successful seed file. */
+  static const std::string SUCCESS_SEED_FILE;
+  /** Name of output road file. */
+  static const std::string ROAD_FILE;
+  /** Name of output road line file. */
+  static const std::string LINE_FILE;
+
+  /** AMREL file suffix. */
+  static const std::string AMREL_SUFFIX;
+  /** Configuration file suffix. */
+  static const std::string INI_SUFFIX;
+  /** Seed file suffix. */
+  static const std::string SEED_SUFFIX;
+  /** FBSD file suffix. */
+  static const std::string FBSD_SUFFIX;
+  /** Shape file suffix. */
+  static const std::string SHAPE_SUFFIX;
+  /** Map file suffix. */
+  static const std::string MAP_SUFFIX;
+  /** Image file suffix. */
+  static const std::string IM_SUFFIX;
+  /** Text file suffix (for tests, parameters, ...). */
+  static const std::string TEXT_SUFFIX;
+
 
   /**
    * \brief Creates a configuration for AMREL tool.
@@ -162,6 +218,16 @@ public:
   void setSeedWidth (int val);
 
   /**
+   * Inquires if half-size seed production is required.
+   */
+  inline bool isHalfSizeSeedsOn () const { return half_size; }
+
+  /**
+   * Requires half-size seed production.
+   */
+  void setHalfSizeSeeds ();
+
+  /**
    * \brief Returns pad size for seed generation.
    */
   inline int padSize () const { return pad_size; }
@@ -184,6 +250,23 @@ public:
    * @param size New size.
    */
   bool setBufferSize (int size);
+
+  /**
+   * \brief Returns tail pruning minimal size.
+   */
+  inline int tailMinSize () const { return tail_min_size; }
+
+  /**
+   * \brief Returns whether a specific tail pruning minimal size is defined.
+   */
+  inline bool tailMinSizeDefined () const { return (tail_min_size != -1); }
+
+  /**
+   * \brief Sets tail pruning minimal size.
+   * Returns if new size is accepted.
+   * @param size New minimal tail size allowed.
+   */
+  bool setTailMinSize (int size);
 
   /**
    * \brief Returns road extraction step to be processed.
@@ -274,6 +357,22 @@ public:
   inline void setVerbose (bool status) { verbose = status; }
 
   /**
+   * \brief Returns road export modality status.
+   */
+  inline bool isExportOn () const { return (exporting != 0); }
+
+  /**
+   * \brief Returns road bound export modality status.
+   */
+  inline bool isExportBoundsOn () const { return (exporting == 2); }
+
+  /**
+   * \brief Sets road export modality status.
+   * @param status New status value (0 = none, 1 = center, 2 = bounds).
+   */
+  inline void setExport (int status) { exporting = status; }
+
+  /**
    * \brief Registers the detector status in default file.
    */
   void saveDetectorStatus () const;
@@ -359,10 +458,14 @@ private:
   int seed_shift;
   /** Half-width of seeds. */
   int seed_width;
+  /** Half-size seed production status. */
+  bool half_size;
   /** Pad size for seed generation. */
   int pad_size;
   /** Tile set size for road extraction. */
   int buf_size;
+  /** Tail pruning minimal size. */
+  int tail_min_size;
 
   /** Road extraction step to be processed. */
   int extraction_step;
@@ -380,6 +483,8 @@ private:
   bool seed_check;
   /** Text information output status. */
   bool verbose;
+  /** Road export modality (0 = no export, 1 = centerline, 2 = bounds). */
+  int exporting;
 
   /** DTM import request status. */
   bool dtm_import;

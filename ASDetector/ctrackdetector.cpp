@@ -30,12 +30,13 @@ const int CTrackDetector::RESULT_FAIL_TOO_NARROW_INPUT = -1;
 const int CTrackDetector::RESULT_FAIL_NO_AVAILABLE_SCAN = -2;
 const int CTrackDetector::RESULT_FAIL_NO_CENTRAL_PLATEAU = -3;
 const int CTrackDetector::RESULT_FAIL_NO_CONSISTENT_SEQUENCE = -4;
-const int CTrackDetector::RESULT_FAIL_TOO_HECTIC_PLATEAUX = -5;
-const int CTrackDetector::RESULT_FAIL_TOO_SPARSE_PLATEAUX = -6;
+const int CTrackDetector::RESULT_FAIL_NO_BOUNDS = -5;
+const int CTrackDetector::RESULT_FAIL_TOO_HECTIC_PLATEAUX = -6;
+const int CTrackDetector::RESULT_FAIL_TOO_SPARSE_PLATEAUX = -7;
 
 const float CTrackDetector::MAX_TRACK_WIDTH = 6.0f;
 const int CTrackDetector::DEFAULT_PLATEAU_LACK_TOLERANCE = 11;
-const int CTrackDetector::DEFAULT_NOBOUNDS_TOLERANCE = 10;
+const int CTrackDetector::NOBOUNDS_TOLERANCE = 10;
 const int CTrackDetector::INITIAL_TRACK_EXTENT = 6;
 const int CTrackDetector::DEFAULT_POS_AND_HEIGHT_REGISTER_SIZE = 8;
 const int CTrackDetector::DEFAULT_UNSTABILITY_REGISTER_SIZE = 6;
@@ -54,10 +55,8 @@ CTrackDetector::CTrackDetector ()
   ptset = NULL;
   profileRecordOn = false;
   plateau_lack_tolerance = DEFAULT_PLATEAU_LACK_TOLERANCE;
-  nobounds_tolerance = DEFAULT_NOBOUNDS_TOLERANCE;
   initial_track_extent = INITIAL_TRACK_EXTENT; // direction precalculation on
   density_insensitive = false;
-  tail_pruning = 0;
   density_pruning = true;
   min_density = DEFAULT_MIN_DENSITY;
   shift_length_pruning = true;
@@ -66,7 +65,6 @@ CTrackDetector::CTrackDetector ()
   fstatus = RESULT_NONE;
   ict = NULL;
   istatus = RESULT_NONE;
-  l12 = 1.0f;
   pfeat.setMinLength (CarriageTrack::MIN_WIDTH);
   pfeat.setMaxLength (CarriageTrack::MAX_WIDTH);
   posht_nb = DEFAULT_POS_AND_HEIGHT_REGISTER_SIZE;
@@ -105,6 +103,12 @@ void CTrackDetector::clear ()
 }
 
 
+void CTrackDetector::preserveDetection ()
+{
+  fct = NULL;
+}
+
+
 void CTrackDetector::setPointsGrid (IPtTileSet *data, int width, int height,
                                     int subdiv, float cellsize)
 {
@@ -127,7 +131,7 @@ CarriageTrack *CTrackDetector::detect (const Pt2i &p1, const Pt2i &p2)
   fp1.set (p1);
   fp2.set (p2);
   Vr2f p12 (csize * (p2.x () - p1.x ()), csize * (p2.y () - p1.y ()));
-  l12 = (float) sqrt (p12.x () * p12.x () + p12.y () * p12.y ());
+  float l12 = (float) sqrt (p12.x () * p12.x () + p12.y () * p12.y ());
   if (l12 < MAX_TRACK_WIDTH)
   {
     fstatus = RESULT_FAIL_TOO_NARROW_INPUT;
@@ -208,6 +212,7 @@ CarriageTrack *CTrackDetector::detect (const Pt2i &p1, const Pt2i &p2)
   }
   if (fct != NULL)
   {
+    if (fstatus == RESULT_FAIL_NO_CONSISTENT_SEQUENCE) return NULL;
     if (shift_length_pruning
         && (fct->relativeShiftLength () > max_shift_length))
     {
@@ -233,6 +238,7 @@ void CTrackDetector::detect (int exlimit)
   getInputStroke (p1, p2, exlimit != 0);
   Vr2f p12 (csize * (p2.x () - p1.x ()), csize * (p2.y () - p1.y ()));
   Pt2f p1f (csize * (p1.x () + 0.5f), csize * (p1.y () + 0.5f));
+  float l12 = (float) sqrt (p12.x () * p12.x () + p12.y () * p12.y ());
 
   // Creates adaptive directional scanners for point cloud and display
   DirectionalScanner *ds = scanp.getScanner (
@@ -357,14 +363,7 @@ void CTrackDetector::detect (int exlimit)
     track (true, scanp.isLastScanReversed (), exlimit,
            ds, disp, p1f, p12, l12, initial_refs, initial_refe, initial_refh);
   }
-  if (tail_pruning != 0 && ct->prune (pfeat.tailMinSize ()))
-  {
-    ct->setStatus (RESULT_FAIL_NO_CONSISTENT_SEQUENCE);
-    if (exlimit != 0) istatus = RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
-    else fstatus = RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
-  }
-  else if (tail_pruning == 2
-           && ct->getAcceptedCount () < 2 * pfeat.tailMinSize ())
+  if (pfeat.tailMinSize () != 0 && ct->prune (pfeat.tailMinSize ()))
   {
     ct->setStatus (RESULT_FAIL_NO_CONSISTENT_SEQUENCE);
     if (exlimit != 0) istatus = RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
@@ -381,6 +380,7 @@ void CTrackDetector::detect ()
   getInputStroke (p1, p2);
   Vr2f p12 (csize * (p2.x () - p1.x ()), csize * (p2.y () - p1.y ()));
   Pt2f p1f (csize * (p1.x () + 0.5f), csize * (p1.y () + 0.5f));
+  float l12 = (float) sqrt (p12.x () * p12.x () + p12.y () * p12.y ());
 
   // Creates adaptive directional scanners for point cloud and display
   DirectionalScanner *ds = scanp.getScanner (
@@ -443,7 +443,7 @@ void CTrackDetector::detect ()
   for (int ptest = 0; ptest != NB_SIDE_TRIALS; ptest++)
   {
     Plateau *cpl2 = new Plateau (&pfeat);
-    bool success = cpl2->track (cpts, true, 0.0f, l12, 0.0f, tests[ptest], 0);
+    bool success = cpl2->track (cpts, 0.0f, l12, 0.0f, tests[ptest], 0);
     if (success) found = true;
     if (cpl == NULL) cpl = cpl2;
     else
@@ -498,13 +498,7 @@ void CTrackDetector::detect ()
     track (true, scanp.isLastScanReversed (), 0,
            ds, disp, p1f, p12, l12, initial_refs, initial_refe, initial_refh);
   }
-  if (tail_pruning != 0 && fct->prune (pfeat.tailMinSize ()))
-  {
-    fct->setStatus (RESULT_FAIL_NO_CONSISTENT_SEQUENCE);
-    fstatus = RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
-  }
-  else if (tail_pruning == 2
-           && fct->getAcceptedCount () < 2 * pfeat.tailMinSize ())
+  if (pfeat.tailMinSize () != 0 && fct->prune (pfeat.tailMinSize ()))
   {
     fct->setStatus (RESULT_FAIL_NO_CONSISTENT_SEQUENCE);
     fstatus = RESULT_FAIL_NO_CONSISTENT_SEQUENCE;
@@ -585,17 +579,17 @@ void CTrackDetector::track (bool onright, bool reversed, int exlimit,
       // Detects the plateau and updates the track section
       Plateau *pl = new Plateau (&pfeat);
       sort (pts.begin (), pts.end (), compIFurther);
-      pl->track (pts, false, refs, refe, refh, 0.0f, confdist);
+      pl->track (pts, refs, refe, refh, 0.0f, confdist);
       if (pl->getStatus () != Plateau::PLATEAU_RES_OK)
       {
         Plateau *pl2 = new Plateau (&pfeat);
-        pl2->track (pts, false, refs, refe, refh,
+        pl2->track (pts, refs, refe, refh,
                     pfeat.plateauSearchDistance (), confdist);
         if (pl2->getStatus () != Plateau::PLATEAU_RES_OK)
         {
           delete pl2;
           Plateau *pl3 = new Plateau (&pfeat);
-          pl3->track (pts, false, refs, refe, refh,
+          pl3->track (pts, refs, refe, refh,
                       -pfeat.plateauSearchDistance (), confdist);
           if (pl3->getStatus () != Plateau::PLATEAU_RES_OK)
             delete pl3;
@@ -630,9 +624,11 @@ void CTrackDetector::track (bool onright, bool reversed, int exlimit,
           initial_refe = pl->internalEnd ();
         }
         else
-          if (num == nobounds_tolerance || num == - nobounds_tolerance)
+          if (num == NOBOUNDS_TOLERANCE || num == - NOBOUNDS_TOLERANCE)
           {
-            pl->setStatus (Plateau::PLATEAU_RES_NO_BOUND_DETECTED);
+            ct->setStatus (RESULT_FAIL_NO_BOUNDS);
+            if (exlimit != 0) istatus = RESULT_FAIL_NO_BOUNDS;
+            else fstatus = RESULT_FAIL_NO_BOUNDS;
             search = false;
           }
       }
@@ -946,7 +942,6 @@ void CTrackDetector::alignInput (const std::vector<Pt2f> &pts)
   fp2.set ((int) ((x + a * length) / csize),
            (int) ((y - b * length) / csize));
   Vr2f p12 (csize * (fp2.x () - fp1.x ()), csize * (fp2.y () - fp1.y ()));
-  l12 = (float) sqrt (p12.x () * p12.x () + p12.y () * p12.y ());
 }
 
 

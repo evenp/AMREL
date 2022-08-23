@@ -25,17 +25,8 @@
 #include "ipttile.h"
 #include "terrainmap.h"
 
-#define CONFIG_FILE "config.ini"
-#define DET_FILE "steps/autodet.ini"
-#define TILE_FILE_DIR "tilesets/"
-#define LAST_SET "last_set"
-#define LAST_TILES "last_tiles"
-#define NVM_DEFAULT_DIR "nvm/"
-#define TIL_DEFAULT_DIR "til/"
-#define TXT_SUFFIX ".txt"
 
-
-const std::string AmrelConfig::VERSION = "1.1.3";
+const std::string AmrelConfig::VERSION = "1.1.4";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
@@ -52,25 +43,56 @@ const int AmrelConfig::DEFAULT_MIN_BS_LENGTH = 80;
 const int AmrelConfig::DEFAULT_SEED_SHIFT = 24;
 const int AmrelConfig::DEFAULT_SEED_WIDTH = 40;
 
+const std::string AmrelConfig::RES_DIR = std::string ("steps/");
+const std::string AmrelConfig::TSET_DIR = std::string ("tilesets/");
+const std::string AmrelConfig::NVM_DEFAULT_DIR = std::string ("nvm/");
+const std::string AmrelConfig::TIL_DEFAULT_DIR = std::string ("til/");
+
+const std::string AmrelConfig::CONFIG_FILE = std::string ("config");
+const std::string AmrelConfig::DETECTOR_FILE = std::string ("autodet");
+const std::string AmrelConfig::LAST_SET_FILE = std::string ("last_set");
+const std::string AmrelConfig::LAST_TILES_FILE = std::string ("last_tiles");
+const std::string AmrelConfig::PERF_FILE = std::string ("perf");
+const std::string AmrelConfig::HILL_FILE = std::string ("hill");
+const std::string AmrelConfig::SLOPE_FILE = std::string ("shade");
+const std::string AmrelConfig::RORPO_FILE = std::string ("rorpo");
+const std::string AmrelConfig::SOBEL_FILE = std::string ("sobel");
+const std::string AmrelConfig::FBSD_FILE = std::string ("fbsd");
+const std::string AmrelConfig::SEED_FILE = std::string ("seeds");
+const std::string AmrelConfig::SUCCESS_SEED_FILE = std::string ("sucseeds");
+const std::string AmrelConfig::ROAD_FILE = std::string ("roads");
+const std::string AmrelConfig::LINE_FILE = std::string ("road_lines");
+
+const std::string AmrelConfig::AMREL_SUFFIX = std::string (".amr");
+const std::string AmrelConfig::INI_SUFFIX = std::string (".ini");
+const std::string AmrelConfig::SEED_SUFFIX = std::string (".pts");
+const std::string AmrelConfig::FBSD_SUFFIX = std::string (".dss");
+const std::string AmrelConfig::SHAPE_SUFFIX = std::string (".shx");
+const std::string AmrelConfig::MAP_SUFFIX = std::string (".map");
+const std::string AmrelConfig::IM_SUFFIX = std::string (".png");
+const std::string AmrelConfig::TEXT_SUFFIX = std::string (".txt");
+
 
 AmrelConfig::AmrelConfig ()
 {
   ctdet = NULL;
-  nvm_dir = std::string (NVM_DEFAULT_DIR);
-  til_dir = std::string (TIL_DEFAULT_DIR);
+  nvm_dir = NVM_DEFAULT_DIR;
+  til_dir = TIL_DEFAULT_DIR;
   dtm_dir = "";
   xyz_dir = "";
   xyz_file = "";
   dtm_import = false;
   xyz_import = false;
-  sector_name = std::string (LAST_SET);
+  sector_name = LAST_SET_FILE;
   cloud_access = IPtTile::TOP;
   max_bs_thickness = DEFAULT_MAX_BS_THICKNESS;
   min_bs_length = DEFAULT_MIN_BS_LENGTH;
   seed_shift = DEFAULT_SEED_SHIFT;
   seed_width = DEFAULT_SEED_WIDTH;
+  half_size = false;
   pad_size = 0;
   buf_size = 0;
+  tail_min_size = -1;  // undetermined
   extraction_step = STEP_ALL;
   connected_mode = true;
   hill_map = false;
@@ -79,10 +101,11 @@ AmrelConfig::AmrelConfig ()
   false_color = false;
   seed_check = false;
   verbose = true;
+  exporting = 0;
 
   char cfg_param[100];
   bool reading = true;
-  std::ifstream input (CONFIG_FILE, std::ios::in);
+  std::ifstream input (CONFIG_FILE + INI_SUFFIX, std::ios::in);
   if (input)
   {
     while (reading)
@@ -106,13 +129,15 @@ AmrelConfig::AmrelConfig ()
           setSeedShift (getValue (input, "SEED_SHIFT"));
         else if (std::string (cfg_param) == std::string ("SEED_WIDTH"))
           setSeedWidth (getValue (input, "SEED_WIDTH"));
-        else if (std::string (cfg_param) == std::string ("PAD_SIZE")) 
+        else if (std::string (cfg_param) == std::string ("PAD_SIZE"))
           setPadSize (getValue (input, "PAD_SIZE"));
-        else if (std::string (cfg_param) == std::string ("BUFFER_SIZE")) 
+        else if (std::string (cfg_param) == std::string ("BUFFER_SIZE"))
           setBufferSize (getValue (input, "BUFFER_SIZE"));
-        else if (std::string (cfg_param) == std::string ("CONNECTED")) 
+        else if (std::string (cfg_param) == std::string ("TAIL_MIN_SIZE"))
+          tail_min_size = getValue (input, "TAIL_MIN_SIZE");
+        else if (std::string (cfg_param) == std::string ("CONNECTED"))
           connected_mode = getStatus (input, "CONNECTED");
-        else if (std::string (cfg_param) == std::string ("STEP")) 
+        else if (std::string (cfg_param) == std::string ("STEP"))
         {
           std::string clac = getName (input, "STEP");
           if (clac == std::string ("ALL")) extraction_step = STEP_ALL;
@@ -184,22 +209,19 @@ void AmrelConfig::addTileName (const std::string &name)
 
 std::string AmrelConfig::tiles () const
 {
-  std::string tsname (TILE_FILE_DIR);
-  tsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
+  std::string tsname (TSET_DIR + LAST_SET_FILE + TEXT_SUFFIX);
   std::ifstream tsf (tsname.c_str (), std::ios::in);
   char text[200];
   tsf >> text;
   tsf.close ();
-  return (std::string (TILE_FILE_DIR)
-          + std::string (text) + std::string (TXT_SUFFIX));
+  return (TSET_DIR + std::string (text) + TEXT_SUFFIX);
 }
 
 
 bool AmrelConfig::setTiles ()
 {
   bool unspec = true;
-  std::string tsname (TILE_FILE_DIR);
-  tsname += sector_name + std::string (TXT_SUFFIX);
+  std::string tsname (TSET_DIR + sector_name + TEXT_SUFFIX);
   std::ifstream tsf (tsname.c_str (), std::ios::in);
   if (tsf.is_open ())
   {
@@ -210,10 +232,9 @@ bool AmrelConfig::setTiles ()
     else
     {
       tsf.close ();
-      if (sector_name != std::string (LAST_SET))
+      if (sector_name != LAST_SET_FILE)
       {
-        std::string deftsname (TILE_FILE_DIR);
-        deftsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
+        std::string deftsname (TSET_DIR + LAST_SET_FILE + TEXT_SUFFIX);
         std::ofstream defts (deftsname.c_str (), std::ios::out);
         defts << sector_name << std::endl;
         defts.close ();
@@ -232,8 +253,7 @@ bool AmrelConfig::setTiles ()
     std::vector<std::string>::iterator it = tile_names.begin ();
     while (it != tile_names.end ())
     {
-      std::string nvmn (NVM_DEFAULT_DIR);
-      nvmn += *it + TerrainMap::NVM_SUFFIX;
+      std::string nvmn (NVM_DEFAULT_DIR + *it + TerrainMap::NVM_SUFFIX);
       std::ifstream tf (nvmn.c_str (), std::ios::in);
       if (tf.is_open ()) tf.close ();
       else
@@ -241,22 +261,19 @@ bool AmrelConfig::setTiles ()
         std::cout << "Unknown file " << nvmn << std::endl;
         unspec = false;
       }
-      std::string tiln (TIL_DEFAULT_DIR);
-      tiln += IPtTile::ECO_DIR + IPtTile::ECO_PREFIX
-              + *it + IPtTile::TIL_SUFFIX;
+      std::string tiln (TIL_DEFAULT_DIR + IPtTile::ECO_DIR
+                        + IPtTile::ECO_PREFIX + *it + IPtTile::TIL_SUFFIX);
       std::ifstream ecof (tiln.c_str (), std::ios::in);
       if (ecof.is_open ()) ecof.close ();
       else
       {
-        tiln = std::string (TIL_DEFAULT_DIR)
-               + IPtTile::MID_DIR + IPtTile::MID_PREFIX
+        tiln = TIL_DEFAULT_DIR + IPtTile::MID_DIR + IPtTile::MID_PREFIX
                + *it + IPtTile::TIL_SUFFIX;
         std::ifstream midf (tiln.c_str (), std::ios::in);
         if (midf.is_open ()) midf.close ();
         else
         {
-          tiln = std::string (TIL_DEFAULT_DIR)
-                 + IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
+          tiln = TIL_DEFAULT_DIR + IPtTile::TOP_DIR + IPtTile::TOP_PREFIX
                  + *it + IPtTile::TIL_SUFFIX;
           std::ifstream topf (tiln.c_str (), std::ios::in);
           if (topf.is_open ()) topf.close ();
@@ -270,16 +287,13 @@ bool AmrelConfig::setTiles ()
       it ++;
     }
     if (! unspec) return false;
-    if (sector_name == std::string (LAST_SET))
-      sector_name = std::string (LAST_TILES);
-    std::string deftname (TILE_FILE_DIR);
-    deftname += sector_name + std::string (TXT_SUFFIX);
+    if (sector_name == LAST_SET_FILE) sector_name = LAST_TILES_FILE;
+    std::string deftname (TSET_DIR + sector_name + TEXT_SUFFIX);
     std::ofstream deft (deftname.c_str (), std::ios::out);
     it = tile_names.begin ();
     while (it != tile_names.end ()) deft << *it++ << std::endl;
     deft.close ();
-    std::string deftsname (TILE_FILE_DIR);
-    deftsname += std::string (LAST_SET) + std::string (TXT_SUFFIX);
+    std::string deftsname (TSET_DIR + LAST_SET_FILE + TEXT_SUFFIX);
     std::ofstream defts (deftsname.c_str (), std::ios::out);
     defts << sector_name << std::endl;
     defts.close ();
@@ -297,7 +311,7 @@ std::string AmrelConfig::inputName () const
 
 bool AmrelConfig::setInputName (std::string name)
 {
-  if (sector_name != std::string (LAST_SET)) return false;
+  if (sector_name != std::string (LAST_SET_FILE)) return false;
   sector_name = name;
   return true;
 }
@@ -331,6 +345,16 @@ void AmrelConfig::setSeedWidth (int val)
 }
 
 
+void AmrelConfig::setHalfSizeSeeds ()
+{
+  half_size = true;
+  setMaxBSThickness (max_bs_thickness / 2);
+  setMinBSLength (min_bs_length / 2);
+  setSeedShift (seed_shift / 2);
+  setSeedWidth (seed_width / 2);
+}
+
+
 bool AmrelConfig::setPadSize (int size)
 {
   if (size < 0 || size % 2 == 0)
@@ -357,6 +381,18 @@ bool AmrelConfig::setBufferSize (int size)
 }
 
 
+bool AmrelConfig::setTailMinSize (int size)
+{
+  if (size < 0)
+  {
+    std::cout << "Tail pruning : minimal size to set" << std::endl;
+    return false;
+  }
+  tail_min_size = size;
+  return true;
+}
+
+
 bool AmrelConfig::getStatus (std::ifstream &input, const char *param)
 {
   char cfg_status[100];
@@ -366,7 +402,8 @@ bool AmrelConfig::getStatus (std::ifstream &input, const char *param)
     if (std::string (cfg_status) == std::string ("ON")) return true;
     else if (std::string (cfg_status) == std::string ("OFF")) return false;
   }
-  std::cout << "Bad status for " << param << " in " << CONFIG_FILE << std::endl;
+  std::cout << "Bad status for " << param << " in "
+            << CONFIG_FILE << INI_SUFFIX << std::endl;
   return false;
 }
 
@@ -376,7 +413,8 @@ std::string AmrelConfig::getName (std::ifstream &input, const char *param)
   char cfg_name[200];
   input >> cfg_name;
   if (! input.eof ()) return (std::string (cfg_name));
-  std::cout << "Bad status for " << param << " in " << CONFIG_FILE << std::endl;
+  std::cout << "Bad status for " << param << " in "
+            << CONFIG_FILE << INI_SUFFIX << std::endl;
   return std::string ("");
 }
 
@@ -386,14 +424,15 @@ int AmrelConfig::getValue (std::ifstream &input, const char *param)
   int val = 0;
   input >> val;
   if (! input.eof ()) return (val);
-  std::cout << "Bad value for " << param << " in " << CONFIG_FILE << std::endl;
+  std::cout << "Bad value for " << param << " in "
+            << CONFIG_FILE << INI_SUFFIX << std::endl;
   return 0;
 }
 
 
 void AmrelConfig::saveDetectorStatus () const
 {
-  std::ofstream output (DET_FILE, std::ios::out);
+  std::ofstream output (RES_DIR + DETECTOR_FILE + INI_SUFFIX, std::ios::out);
   output << "[AMREL]" << std::endl;
   output << "Version=" << VERSION << std::endl;
   output << "Tile=" << sector_name << std::endl;
@@ -438,10 +477,10 @@ void AmrelConfig::saveDetectorStatus () const
   output << "DetectionRatioTest="
     << (ctdet->isDensityPruning () ? "true" : "false") << std::endl;
   output << "MaxUndetectedRatio=" << ctdet->minDensity () << std::endl;
-  output << "TailCompactnessTest="
-    << (ctdet->tailPruning () != 0 ? "true" : "false") << std::endl;
-  output << "MinTailLength=" << ctdet->model()->tailMinSize () << std::endl;
+  output << "TailMinLength=" << ctdet->model()->tailMinSize () << std::endl;
   output.close ();
+  if (verbose) std::cout << "Detector configuration saved in "
+                         << RES_DIR << DETECTOR_FILE << INI_SUFFIX << std::endl;
 }
 
 
