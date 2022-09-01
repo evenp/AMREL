@@ -23,7 +23,6 @@
 #define AS_TRACK_H
 
 #include "pt2i.h"
-#define TRACK_SIZE 6
 
 
 /** 
@@ -169,6 +168,9 @@ private:
 
   /** Default width. */
   static const int DEFAULT_WIDTH;
+  /** Default width of tracks. */
+  static const int TRACK_SIZE;
+
 
   /** Sequence of track points. */
   std::vector<Pt2i> pts;

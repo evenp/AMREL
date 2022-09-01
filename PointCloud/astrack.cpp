@@ -26,6 +26,7 @@
 #include "astrack.h"
 
 const int ASTrack::DEFAULT_WIDTH = 6;
+const int ASTrack::TRACK_SIZE = 6;
 
 
 ASTrack::ASTrack ()

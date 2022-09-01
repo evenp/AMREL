@@ -713,8 +713,8 @@ bool AmrelTool::processSawing ()
     delete ptset;
     return false;
   }
-  if (! dtm_in->arrangeFiles (ptset->columnsOfTiles (), ptset->rowsOfTiles (),
-                              ptset->xref (), ptset->yref (), false))
+  if (! dtm_in->assembleMap (ptset->columnsOfTiles (), ptset->rowsOfTiles (),
+                             ptset->xref (), ptset->yref (), true))
   {
     std::cout << "Unable to arrange DTM files in space" << std::endl;
     delete dtm_in;
