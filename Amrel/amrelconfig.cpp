@@ -26,7 +26,7 @@
 #include "terrainmap.h"
 
 
-const std::string AmrelConfig::VERSION = "1.1.5";
+const std::string AmrelConfig::VERSION = "1.1.6";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
@@ -523,7 +523,7 @@ bool AmrelConfig::importDtm ()
     }
     it ++;
   }
-  if (! tm.create ())
+  if (! tm.createMapFromDtm ())
   {
     std::cout << "Tile set assembling failed" << std::endl;
     return false;
