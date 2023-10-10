@@ -26,7 +26,7 @@
 #include "terrainmap.h"
 
 
-const std::string AmrelConfig::VERSION = "1.1.6";
+const std::string AmrelConfig::VERSION = "1.1.7";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
