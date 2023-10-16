@@ -27,6 +27,7 @@ Pt3i::Pt3i ()
   xp = 0;
   yp = 0;
   zp = 0;
+  nb = 0;
 }
 
 
@@ -35,6 +36,7 @@ Pt3i::Pt3i (int x, int y, int z)
   xp = x;
   yp = y;
   zp = z;
+  nb = 0;
 }
 
 
@@ -43,6 +45,7 @@ Pt3i::Pt3i (const Pt3i &p)
   xp = p.xp;
   yp = p.yp;
   zp = p.zp;
+  nb = 0;
 }
 
 
@@ -53,4 +56,15 @@ bool Pt3i::greaterThan (const Pt3i &p) const
   if (yp > p.yp) return true;
   if (yp < p.yp) return false;
   return (zp > p.zp);
+}
+
+
+bool Pt3i::find (Pt3i p)
+{
+  if (p.xp == xp && p.yp == yp)
+  {
+    nb++;
+    return true;
+  }
+  return false;
 }
