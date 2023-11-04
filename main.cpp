@@ -36,6 +36,14 @@ int main (int argc, char *argv[])
   AmrelTimer timer (&autodet);
 // TIME OUT
 
+// ZZZ
+  if (argc == 2 && argv[1] == std::string ("count"))
+  {
+    autodet.countRoadPixels ();
+    return EXIT_SUCCESS;
+  }
+// ZZZ
+
   for (int i = 1; i < argc; i++)
   {
     if (string(argv[i]).at(0) == '-')
@@ -81,10 +89,16 @@ int main (int argc, char *argv[])
         autodet.config()->setHillMap (true);
       else if (string(argv[i]) == string ("--map"))
         autodet.config()->setOutMap (true);
+      else if (string(argv[i]) == string ("--inv"))
+        autodet.config()->setColorInversion (true);
       else if (string(argv[i]) == string ("--color"))
         autodet.config()->setFalseColor (true);
       else if (string(argv[i]) == string ("--dtm"))
         autodet.config()->setBackDtm (true);
+      else if (string(argv[i]) == string ("--exportbounds"))
+        autodet.config()->setExport (2);
+      else if (string(argv[i]) == string ("--export"))
+        autodet.config()->setExport (1);
       else if (string(argv[i]) == string ("--unconnected"))
         autodet.config()->setConnected (false);
       else if (string(argv[i]) == string ("--half"))

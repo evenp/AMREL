@@ -335,6 +335,17 @@ public:
   inline void setFalseColor (bool status) { false_color = status; }
 
   /**
+   * \brief Returns color inversion status.
+   */
+  inline bool isColorInversion () const { return inv_color; }
+
+  /**
+   * \brief Sets color inversion status.
+   * @param status New status value.
+   */
+  inline void setColorInversion (bool status) { inv_color = status; }
+
+  /**
    * \brief Returns seed check modality status.
    */
   inline bool isSeedCheckOn () const { return seed_check; }
@@ -479,6 +490,8 @@ private:
   bool back_dtm;
   /** False color output status. */
   bool false_color;
+  /** Color inversion status. */
+  bool inv_color;
   /** Seed check modality status. */
   bool seed_check;
   /** Text information output status. */

@@ -26,7 +26,7 @@
 #include "terrainmap.h"
 
 
-const std::string AmrelConfig::VERSION = "1.1.7";
+const std::string AmrelConfig::VERSION = "1.1.8";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
@@ -99,6 +99,7 @@ AmrelConfig::AmrelConfig ()
   out_map = false;
   back_dtm = false;
   false_color = false;
+  inv_color = false;
   seed_check = false;
   verbose = true;
   exporting = 0;

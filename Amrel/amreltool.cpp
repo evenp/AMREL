@@ -24,6 +24,7 @@
 #include "amreltool.h"
 #include "rorpo.hpp"
 #include "image_png.hpp"
+#include "shapefil.h"
 
 
 const int AmrelTool::NOMINAL_PLATEAU_LACK_TOLERANCE = 5;
@@ -53,6 +54,7 @@ AmrelTool::AmrelTool ()
   vm_width = 0;
   vm_height = 0;
   if (bsdet.isSingleEdgeModeOn ()) bsdet.switchSingleOrDoubleEdge ();
+  if (bsdet.isNFA ()) bsdet.switchNFA ();
   save_seeds = true;
   count_of_roads = 0;
 }
@@ -281,7 +283,15 @@ void AmrelTool::run ()
   else if (cfg.step () == AmrelConfig::STEP_ALL)
   {
     if (processSawing ())
-      if (processAsd ()) saveAsdImage ();
+      if (processAsd ())
+      {
+        saveAsdImage ();
+        if (cfg.isExportOn ())
+        {
+          if (cfg.isExportBoundsOn ()) exportRoads ();
+          else exportRoadCenters ();
+        }
+      }
   }
 
 
@@ -376,6 +386,11 @@ void AmrelTool::run ()
     if (! loadTileSet (false, false)) return; // requires width & height
     processAsd ();
     saveAsdImage ();
+    if (cfg.isExportOn ())
+    {
+      if (cfg.isExportBoundsOn ()) exportRoads ();
+      else exportRoadCenters ();
+    }
   }
 }
 
@@ -1416,11 +1431,130 @@ void AmrelTool::saveAsdImage ()
     }
     for (int i = 0; i < vm_width * vm_height; i++)
     {
-      if (*map != 0) *pim = (unsigned char) 255;
+      if (cfg.isColorInversion ())
+      {
+        if (*map == 0) *pim = (unsigned char) 255;
+      }
+      else 
+      {
+        if (*map != 0) *pim = (unsigned char) 255;
+      }
       pim++;
       map++;
     }
     write_2D_png_image (im,
       AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
   }
+}
+
+
+int AmrelTool::countRoadPixels ()
+{
+  Image2D<unsigned char> im
+    = read_2D_png_image<unsigned char> (
+        AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+  int w = im.dimx (), h = im.dimy ();
+  unsigned char *pim = im.get_pointer ();
+  int nbi = 0, nbr = 0;
+  for (int j = 0; j < h; j ++)
+    for (int i = 0; i < w; i ++)
+    {
+      if (*pim++ > 100) nbr ++;
+//      if (*pim++ != 0) nbr ++;
+      nbi ++;
+    }
+  if (cfg.isVerboseOn ())
+    std::cout << "# road pixels = " << nbr << " / " << nbi << std::endl;
+  return nbr;
+}
+
+
+void AmrelTool::exportRoads ()
+{
+  if (road_sections.empty ()) return;
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE
+                    + AmrelConfig::SHAPE_SUFFIX);
+  std::cout << "Exporting road bounds in " << name << std::endl;
+  SHPHandle hSHPHandle = SHPCreate (name.c_str (), SHPT_ARC);
+  SHPObject *shp = NULL;
+  std::vector<Pt2i> pts;
+  std::vector<Pt2i> pts2;
+  std::vector<CarriageTrack *>::iterator it = road_sections.begin ();
+  while (it != road_sections.end ())
+  {
+    (*it)->getPosition (pts, pts2, CTRACK_DISP_SCANS, iratio, true);
+    int sz = 2 * ((int) (pts.size ())) + 1;
+    double *x = new double[sz];
+    double *y = new double[sz];
+    double *ax = x;
+    double *ay = y;
+    std::vector<Pt2i>::iterator pit = pts.begin ();
+    while (pit != pts.end ())
+    {
+      *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+      *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      pit ++;
+    }
+    if (! pts2.empty ())
+    {
+      pit = pts2.end ();
+      do
+      {
+        pit --;
+        *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+        *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      }
+      while (pit != pts2.begin ());
+      *ax = *x;
+      *ay = *y;
+    }
+    shp = SHPCreateObject (SHPT_ARC, -1, 0, NULL, NULL, sz, x, y, NULL, NULL);
+    SHPWriteObject (hSHPHandle, -1, shp);
+    SHPDestroyObject (shp);
+    delete [] x;
+    delete [] y;
+    pts.clear ();
+    pts2.clear ();
+    it ++;
+  }
+  SHPClose (hSHPHandle);
+}
+
+
+void AmrelTool::exportRoadCenters ()
+{
+  if (road_sections.empty ()) return;
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::LINE_FILE
+                    + AmrelConfig::SHAPE_SUFFIX);
+  std::cout << "Exporting road centers in " << name << std::endl;
+  SHPHandle hSHPHandle = SHPCreate (name.c_str (), SHPT_ARC);
+  SHPObject *shp = NULL;
+  std::vector<Pt2i> pts;
+  std::vector<Pt2i> pts2;
+  std::vector<CarriageTrack *>::iterator it = road_sections.begin ();
+  while (it != road_sections.end ())
+  {
+    (*it)->getPosition (pts, pts2, CTRACK_DISP_CENTER, iratio, true);
+    int sz = (int) (pts.size ());
+    double *x = new double[sz];
+    double *y = new double[sz];
+    double *ax = x;
+    double *ay = y;
+    std::vector<Pt2i>::iterator pit = pts.begin ();
+    while (pit != pts.end ())
+    {
+      *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+      *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      pit ++;
+    }
+    shp = SHPCreateObject (SHPT_ARC, -1, 0, NULL, NULL, sz, x, y, NULL, NULL);
+    SHPWriteObject (hSHPHandle, -1, shp);
+    SHPDestroyObject (shp);
+    delete [] x;
+    delete [] y;
+    pts.clear ();
+    pts2.clear ();
+    it ++;
+  }
+  SHPClose (hSHPHandle);
 }
