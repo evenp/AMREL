@@ -21,6 +21,7 @@
 
 #include "bstracker.h"
 #include "bsproto.h"
+#include <cstddef>
 
 
 const int BSTracker::DEFAULT_PROX_THRESHOLD = 10;

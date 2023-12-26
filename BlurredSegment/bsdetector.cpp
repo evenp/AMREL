@@ -22,7 +22,7 @@
 #include "bsdetector.h"
 
 
-const std::string BSDetector::VERSION = "1.3.0";
+const std::string BSDetector::VERSION = "1.3.3";
 
 const int BSDetector::STEP_FINAL = 0;
 const int BSDetector::STEP_INITIAL = 1;
@@ -69,7 +69,7 @@ BSDetector::BSDetector ()
   bst1 = new BSTracker ();
   bst2 = new BSTracker ();
 
-  nfaOn = false;
+  nfaOn = true;
   nfaf = NULL;
   nfaf = (nfaOn ? new NFAFilter () : NULL);
 
@@ -133,7 +133,7 @@ void BSDetector::setGradientMap (VMap *data)
   if (prelimDetectionOn) bst0->setGradientMap (data);
   if (bst1) bst1->setGradientMap (data);
   if (bst2) bst2->setGradientMap (data);
-  if (nfaf) nfaf->init (data);
+  if (nfaOn) nfaf->init (data);
 }
 
 
@@ -165,7 +165,7 @@ void BSDetector::detectAll ()
   if (maxtrials > (int) (mbsf.size ())) maxtrials = 0;
 
   // Filters the detection output using NFA measure
-  if (nfaf) nfaf->filter (mbsf, vbsf, rbsf);
+  if (nfaOn) nfaf->filter (mbsf, vbsf, rbsf);
   gMap->setMasking (false);
 }
 
@@ -217,7 +217,7 @@ void BSDetector::detectAllWithBalancedXY ()
   if (maxtrials > (int) (mbsf.size ())) maxtrials = 0;
 
   // Filters the detection output using NFA measure
-  if (nfaf) nfaf->filter (mbsf, vbsf, rbsf);
+  if (nfaOn) nfaf->filter (mbsf, vbsf, rbsf);
   gMap->setMasking (false);
 }
 
@@ -238,6 +238,7 @@ void BSDetector::detectSelection (const Pt2i &p1, const Pt2i &p2)
     // Updates the selected segment for survey
     if (maxtrials > (int) (mbsf.size ())) maxtrials = 0;
     gMap->setMasking (false);
+    if (nfaOn) nfaf->filter (mbsf, vbsf, rbsf);
   }
 
   // Runs single detection otherwise

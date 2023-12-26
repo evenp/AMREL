@@ -72,6 +72,7 @@ void NFAFilter::init (VMap *gmap)
 
   // Gets gradient histogram
   int gmax = (int) (sqrt (max_grad2));
+  if (cum_histo != NULL) delete [] cum_histo;
   cum_histo = new double[gmax + 1];
   for (int j = 0; j < height; j++)
     for (int i = 0; i < width; i++)
@@ -103,7 +104,7 @@ bool NFAFilter::filter (const BlurredSegment *bs, int start, int end)
 
   // Gets point with small gradient
   int gmin = max_grad2;
-  int pmin = -1;
+//  int pmin = -1;
   std::vector<Pt2i> pts = bs->getAllPoints ();
   for (int i = start; i < end; i++)
   {
@@ -111,14 +112,15 @@ bool NFAFilter::filter (const BlurredSegment *bs, int start, int end)
     if (gn < gmin)
     {
       gmin = gn;
-      pmin = i;
+//      pmin = i;
     }
   }
 
   // Gets NFA and accept or split the segment
   double nfa = nfaValue (cum_histo[(int) (sqrt (gmin))], length);
-  if (nfa < NFA_EPSILON) return true;
-  return (filter (bs, start, pmin) && filter (bs, pmin + 1, end));
+  return (nfa < NFA_EPSILON);
+//  if (nfa < NFA_EPSILON) return true;
+//  return (filter (bs, start, pmin) && filter (bs, pmin + 1, end));
 }
 
 

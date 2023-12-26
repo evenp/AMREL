@@ -23,7 +23,6 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/Amrel
     ${PROJECT_SOURCE_DIR}/ASDetector
     ${PROJECT_SOURCE_DIR}/BlurredSegment
-    ${PROJECT_SOURCE_DIR}/ConvexHull
     ${PROJECT_SOURCE_DIR}/DirectionalScanner
     ${PROJECT_SOURCE_DIR}/ImageTools
     ${PROJECT_SOURCE_DIR}/PointCloud
@@ -37,17 +36,16 @@ set(HEADERS ASDetector/carriagetrack.h
            ASDetector/plateau.h
            ASDetector/plateaumodel.h
            Amrel/amrelconfig.h
-           Amrel/amreltimer.h
            Amrel/amreltool.h
+           BlurredSegment/antipodal.h
            BlurredSegment/biptlist.h
            BlurredSegment/blurredsegment.h
            BlurredSegment/bsdetector.h
            BlurredSegment/bsproto.h
            BlurredSegment/bstracker.h
+           BlurredSegment/chvertex.h
+           BlurredSegment/convexhull.h
            BlurredSegment/nfafilter.h
-           ConvexHull/antipodal.h
-           ConvexHull/chvertex.h
-           ConvexHull/convexhull.h
            DirectionalScanner/adaptivescannero1.h
            DirectionalScanner/adaptivescannero2.h
            DirectionalScanner/adaptivescannero7.h
@@ -96,17 +94,16 @@ set(SOURCES main.cpp
            ASDetector/plateau.cpp
            ASDetector/plateaumodel.cpp
            Amrel/amrelconfig.cpp
-           Amrel/amreltimer.cpp
            Amrel/amreltool.cpp
+           BlurredSegment/antipodal.cpp
            BlurredSegment/biptlist.cpp
            BlurredSegment/blurredsegment.cpp
            BlurredSegment/bsdetector.cpp
            BlurredSegment/bsproto.cpp
            BlurredSegment/bstracker.cpp
+           BlurredSegment/chvertex.cpp
+           BlurredSegment/convexhull.cpp
            BlurredSegment/nfafilter.cpp
-           ConvexHull/antipodal.cpp
-           ConvexHull/chvertex.cpp
-           ConvexHull/convexhull.cpp
            DirectionalScanner/adaptivescannero1.cpp
            DirectionalScanner/adaptivescannero2.cpp
            DirectionalScanner/adaptivescannero7.cpp

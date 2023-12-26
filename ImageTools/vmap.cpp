@@ -650,7 +650,7 @@ int VMap::localMax (int *lmax, const std::vector<Pt2i> &pix) const
   // Sorts candidates by gradient magnitude
   sortMax (lmax, count, gn);
 
-  delete gn;
+  delete [] gn;
   return count;
 }
 
@@ -682,7 +682,7 @@ int VMap::localMax (int *lmax, const std::vector<Pt2i> &pix,
   // Sorts candidates by gradient magnitude
   sortMax (lmax, count, gn);
 
-  delete gn;
+  delete [] gn;
   return count;
 }
 
