@@ -570,18 +570,13 @@ bool AmrelTool::processAsd ()
             out_sucseeds[k].push_back (p1);
             out_sucseeds[k].push_back (p2);
             std::vector<Pt2i> pts;
-            ct->getConnectedPoints (&pts, true, p1, p2, iratio);
+            ct->getConnectedPoints (&pts, true, vm_width, vm_height, iratio);
             std::vector<Pt2i>::iterator pit = pts.begin ();
             while (pit != pts.end ())
             {
               track_map[(vm_height - 1 - pit->y ()) * vm_width + pit->x ()]
                   = (unsigned short) count_of_roads;
               pit ++;
-            }
-            if (cfg.isExportOn ())
-            {
-              road_sections.push_back (ct);
-              ctdet->preserveDetection ();
             }
           }
         }
@@ -621,19 +616,15 @@ bool AmrelTool::processAsd ()
               out_sucseeds[k].push_back (p2);
               std::vector<Pt2i> pts;
               if (cfg.isConnectedOn ())
-                ct->getConnectedPoints (&pts, true, p1, p2, iratio);
-              else ct->getPoints (&pts, true, iratio, p1, p2);
+                ct->getConnectedPoints (&pts, true,
+                                        vm_width, vm_height, iratio);
+              else ct->getPoints (&pts, true, vm_width, vm_height, iratio);
               std::vector<Pt2i>::iterator pit = pts.begin ();
               while (pit != pts.end ())
               {
                 track_map[(vm_height - 1 - pit->y ()) * vm_width + pit->x ()]
                   = (unsigned short) count_of_roads;
                 pit ++;
-              }
-              if (cfg.isExportOn ())
-              {
-                road_sections.push_back (ct);
-                ctdet->preserveDetection ();
               }
             }
           }

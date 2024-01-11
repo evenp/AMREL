@@ -347,6 +347,5 @@ private:
   /** List of detected road sections. */
   std::vector<CarriageTrack *> road_sections;
 
-
 };
 #endif
