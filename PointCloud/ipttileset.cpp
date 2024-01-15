@@ -265,8 +265,9 @@ int IPtTileSet::heightOfFirstPointIn (std::vector<Pt2i> &scan) const
 
 bool IPtTileSet::collectPoints (std::vector<Pt3i> &pts, int i, int j) // const
 {
-  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 avec over
+  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 when eco
   int itile = icell / twidth, jtile = jcell / theight;
+  if (i < 0 || itile >= tcols || j < 0 || jtile >= trows) return false;
   IPtTile *tile = tiles[jtile * tcols + itile];
   if (tile != NULL)
   {
@@ -314,8 +315,9 @@ bool IPtTileSet::collectPoints (std::vector<Pt3i> &pts, int i, int j) // const
 
 bool IPtTileSet::collectPoints (std::vector<Pt3f> &pts, int i, int j) // const
 {
-  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 avec over
+  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 when eco
   int itile = icell / twidth, jtile = jcell / theight;
+  if (i < 0 || itile >= tcols || j < 0 || jtile >= trows) return false;
   IPtTile *tile = tiles[jtile * tcols + itile];
   if (tile != NULL)
   {
@@ -365,8 +367,9 @@ bool IPtTileSet::collectPointsAndLabels (
                          std::vector<Pt3f> &pts, std::vector<int> &tls,
                          std::vector<int> &lbs, int i, int j) // const
 {
-  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 avec over
+  int icell = i / cdiv, jcell = j / cdiv;                // cdiv = 10 when eco
   int itile = icell / twidth, jtile = jcell / theight;
+  if (i < 0 || itile >= tcols || j < 0 || jtile >= trows) return false;
   IPtTile *tile = tiles[jtile * tcols + itile];
   if (tile != NULL)
   {
@@ -430,6 +433,7 @@ void IPtTileSet::collectUnsortedPoints (std::vector<Pt3f> &pts,
 {
   int icell = i / cdiv, jcell = j / cdiv;
   int itile = icell / twidth, jtile = jcell / theight;
+  if (i < 0 || itile >= tcols || j < 0 || jtile >= trows) return;
   IPtTile *tile = tiles[jtile * tcols + itile];
   if (tile != NULL)
   {

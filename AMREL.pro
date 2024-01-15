@@ -21,7 +21,6 @@ HEADERS += ASDetector/carriagetrack.h \
            ASDetector/plateau.h \
            ASDetector/plateaumodel.h \
            Amrel/amrelconfig.h \
-           Amrel/amreltimer.h \
            Amrel/amreltool.h \
            BlurredSegment/antipodal.h \
            BlurredSegment/biptlist.h \
@@ -79,7 +78,6 @@ SOURCES += main.cpp \
            ASDetector/plateau.cpp \
            ASDetector/plateaumodel.cpp \
            Amrel/amrelconfig.cpp \
-           Amrel/amreltimer.cpp \
            Amrel/amreltool.cpp \
            BlurredSegment/antipodal.cpp \
            BlurredSegment/biptlist.cpp \
