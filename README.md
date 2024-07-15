@@ -23,6 +23,11 @@ Uppsala, Sweden, May 24-17, 2021 (Springer LNCS 12708), pp. 93-106.
 * CMakeLists.txt provided for cmake.
 * AMREL.pro provided for qmake.
 
+This software has Unix-style command line control.
+A multi-platform version based on configuration file is available from
+[AMRELmp GitHub repository](https::github.com/evenp/AMRELmp).
+
+
 ## INPUTS
 
 ### NVM files
