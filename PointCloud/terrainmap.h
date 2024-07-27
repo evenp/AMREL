@@ -40,6 +40,8 @@ public:
   static const int SHADE_HILL;
   /** Slope shading type. */
   static const int SHADE_SLOPE;
+  /** Exponential slope shading type. */
+  static const int SHADE_EXP_SLOPE;
   /** Default value for the pad size (tile rows or columns). */
   static const int DEFAULT_PAD_SIZE;
   /** DTM map file suffix. */
@@ -112,6 +114,14 @@ public:
   int get (int i, int j, int shading_type) const;
 
   /**
+   * \brief Returns an exponential slope value for a pixel of the normal map.
+   * @param i Pixel absiscae.
+   * @param j Pixel ordinate.
+   * @param slp Slope angle exponential factor.
+   */
+  double getSlopeFactor (int i, int j, int slp) const;
+
+  /**
    * \brief Returns the lighting device angle.
    */
   inline int shadingType () const { return shading; }
@@ -137,6 +147,31 @@ public:
    * @param val Rotation angle in radians.
    */
   void setLightAngle (float val);
+
+  /**
+   * \brief Returns the slope exponential factor applied.
+   */
+  inline int slopinessFactor () const { return slopiness; }
+
+  /**
+   * \brief Increments the slope angle exponential factor from given value.
+   * @param inc Factor increment.
+   */
+  void incSlopinessFactor (int val);
+
+  /**
+   * \brief Sets the slope angle exponential factor.
+   * @param val New factor value.
+   */
+  void setSlopinessFactor (int val);
+
+  /** Return the center of the closest flat area to given point.
+   * @param pt The input point.
+   * @param srad The search area radius.
+   * @param frad The slope integration area radius.
+   * @param sfact The slope angle exponential factor.
+   */
+  Pt2i closestFlatArea (const Pt2i &pt, int srad, int frad, int sfact);
 
   /**
    * \brief Declares a new normal map file to add.
@@ -199,6 +234,16 @@ public:
   int nextPad (unsigned char *map);
 
   /**
+   * \brief Returns tile features from its layout.
+   * Returns whether the tile is found.
+   * @param name Returned nick name feature.
+   * @param xmin Returned left-most coordinate feature.
+   * @param ymin Returned lower coordinate feature.
+   * @param lay Checked tile layout.
+   */
+  bool getLayoutInfo (std::string &name, double &xmin, double &ymin, Pt2i lay);
+
+  /**
    * \brief Loads one slope-shaded DTM in given map location.
    * Returns whether loading succeeded.
    * @param k Tile index wrt tile set.
@@ -216,10 +261,16 @@ public:
   void clearMap (unsigned char *submap, int pw, int w, int h);
 
   /**
-   * \brief Creates a normal vector map from the first tile.
+   * \brief Creates a normal vector map file from the first loaded tile.
    * @param name Output file name.
    */
   void saveFirstNormalMap (const std::string &name) const;
+
+  /**
+   * \brief Creates normal vector map files from each loaded tile.
+   * @param dir Output directory name.
+   */
+  void saveLoadedNormalMaps (const std::string &dir) const;
 
   /**
    * \brief Adds and arranges a new DTM file.
@@ -234,6 +285,12 @@ public:
    */
   bool addDtmFile (const std::string &name,
                    bool verb = false, bool grid_ref = false);
+
+  /**
+   * \brief Adds a DTM nick name.
+   * @param name DTM file nick name (no directory prefix, nor suffix).
+   */
+  void addDtmName (const std::string &name);
 
   /**
    * \brief Creates the normal map from available DTM (ASC) files.
@@ -321,16 +378,19 @@ private:
   Pt3f light_v2;
   /** Third light direction. */
   Pt3f light_v3;
+  /** Slope exponential factor (min value : 1). */
+  int slopiness;
 
   /** Input files layout. */
-  std::vector<Pt2i> layout;
-  /** First tile leftmost coordinate. */
-  double fx_min;
-  /** First tile lowest coordinate. */
-  double fy_min;
-
-  /** Input files names. */
-  std::vector<std::string> input_files;
+  std::vector<Pt2i> input_layout;
+  /** Input files full names. */
+  std::vector<std::string> input_fullnames;
+  /** Input files nick names (without prefix nor suffix). */
+  std::vector<std::string> input_nicknames;
+  /** Loaded tiles lefmost coordinate. */
+  std::vector<double> input_xmins;
+  /** Loaded tiles lowest coordinate. */
+  std::vector<double> input_ymins;
   /** Map of arranged tile file names. */
   std::string **arr_files;
 

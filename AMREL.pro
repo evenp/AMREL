@@ -11,7 +11,8 @@ INCLUDEPATH += . \
            DirectionalScanner \
            ImageTools \
            PointCloud \
-           RORPO2D
+           RORPO2D \
+           ShapeFile-1.3.0
 OBJECTS_DIR = obj
 
 # Input
@@ -21,6 +22,8 @@ HEADERS += ASDetector/carriagetrack.h \
            ASDetector/plateau.h \
            ASDetector/plateaumodel.h \
            Amrel/amrelconfig.h \
+           Amrel/amrelmap.h \
+           Amrel/amreltimer.h \
            Amrel/amreltool.h \
            BlurredSegment/antipodal.h \
            BlurredSegment/biptlist.h \
@@ -69,7 +72,8 @@ HEADERS += ASDetector/carriagetrack.h \
            RORPO2D/po.hpp \
            RORPO2D/rorpo.hpp \
            RORPO2D/basic_operators.hpp \
-           RORPO2D/sort_functions.hpp
+           RORPO2D/sort_functions.hpp \
+           ShapeLib-1.3.0/shapefil.h
 
 SOURCES += main.cpp \
            ASDetector/carriagetrack.cpp \
@@ -78,6 +82,8 @@ SOURCES += main.cpp \
            ASDetector/plateau.cpp \
            ASDetector/plateaumodel.cpp \
            Amrel/amrelconfig.cpp \
+           Amrel/amrelmap.cpp \
+           Amrel/amreltimer.cpp \
            Amrel/amreltool.cpp \
            BlurredSegment/antipodal.cpp \
            BlurredSegment/biptlist.cpp \
@@ -116,7 +122,11 @@ SOURCES += main.cpp \
            PointCloud/pt3f.cpp \
            PointCloud/pt3i.cpp \
            PointCloud/terrainmap.cpp \
-           PointCloud/vr2f.cpp
+           PointCloud/vr2f.cpp \
+           ShapeLib-1.3.0/dbfopen.c \
+           ShapeLib-1.3.0/safileio.c \
+           ShapeLib-1.3.0/shpopen.c \
+           ShapeLib-1.3.0/shptree.c
 
 LIBS += -lpng
 

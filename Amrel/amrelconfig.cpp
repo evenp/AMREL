@@ -21,12 +21,13 @@
 
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include "amrelconfig.h"
 #include "ipttile.h"
 #include "terrainmap.h"
 
 
-const std::string AmrelConfig::VERSION = "1.2.3";
+const std::string AmrelConfig::VERSION = "1.3.3";
 
 const int AmrelConfig::DTM_GRID_SUBDIVISION_FACTOR = 5;
 const int AmrelConfig::STEP_ALL = 0;
@@ -42,11 +43,14 @@ const int AmrelConfig::DEFAULT_MAX_BS_THICKNESS = 7;
 const int AmrelConfig::DEFAULT_MIN_BS_LENGTH = 80;
 const int AmrelConfig::DEFAULT_SEED_SHIFT = 24;
 const int AmrelConfig::DEFAULT_SEED_WIDTH = 40;
+const int AmrelConfig::DEFAULT_FLY_SIZE = 200;
 
 const std::string AmrelConfig::RES_DIR = std::string ("steps/");
 const std::string AmrelConfig::TSET_DIR = std::string ("tilesets/");
 const std::string AmrelConfig::NVM_DEFAULT_DIR = std::string ("nvm/");
 const std::string AmrelConfig::TIL_DEFAULT_DIR = std::string ("til/");
+const std::string AmrelConfig::DTM_DEFAULT_DIR = std::string ("asc/");
+const std::string AmrelConfig::PTS_DEFAULT_DIR = std::string ("xyz/");
 
 const std::string AmrelConfig::CONFIG_FILE = std::string ("config");
 const std::string AmrelConfig::DETECTOR_FILE = std::string ("autodet");
@@ -78,18 +82,21 @@ AmrelConfig::AmrelConfig ()
   ctdet = NULL;
   nvm_dir = NVM_DEFAULT_DIR;
   til_dir = TIL_DEFAULT_DIR;
-  dtm_dir = "";
-  xyz_dir = "";
+  dtm_dir = DTM_DEFAULT_DIR;
+  xyz_dir = PTS_DEFAULT_DIR;
   xyz_file = "";
+  no_rorpo = false;
+  new_lidar = false;
   dtm_import = false;
   xyz_import = false;
   sector_name = LAST_SET_FILE;
-  cloud_access = IPtTile::TOP;
+  cloud_access = IPtTile::MID;
   max_bs_thickness = DEFAULT_MAX_BS_THICKNESS;
   min_bs_length = DEFAULT_MIN_BS_LENGTH;
   seed_shift = DEFAULT_SEED_SHIFT;
   seed_width = DEFAULT_SEED_WIDTH;
   half_size = false;
+  fly_size = DEFAULT_FLY_SIZE;
   pad_size = 0;
   buf_size = 0;
   tail_min_size = -1;  // undetermined
@@ -107,7 +114,7 @@ AmrelConfig::AmrelConfig ()
   char cfg_param[100];
   bool reading = true;
   std::ifstream input (CONFIG_FILE + INI_SUFFIX, std::ios::in);
-  if (input)
+  if (input.is_open ())
   {
     while (reading)
     {
@@ -174,6 +181,164 @@ AmrelConfig::AmrelConfig ()
 
 AmrelConfig::~AmrelConfig ()
 {
+}
+
+
+bool AmrelConfig::readConfig ()
+{
+  char text[200];
+  std::ifstream input ("config/AMREL.ini", std::ios::in);
+  bool reading = true;
+  if (input.is_open ())
+  {
+    while (reading)
+    {
+      input >> text;
+      if (input.eof ()) reading = false;
+      else
+      {
+        std::string titre (text);
+        if (titre == "NewLidar")
+        {
+          input >> text;
+          if (std::string (text) == "yes") setNewLidarOn ();
+        }
+        else if (titre == "DtmDir")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else if (std::string (text) != "local")
+            setDtmDir (std::string (text));
+        }
+        else if (titre == "PointDir")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else if (std::string (text) != "local")
+            setXyzDir (std::string (text));
+        }
+        else if (titre == "TileSet")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            if (! setInputName (std::string (text)))
+            {
+              std::cout << "Unknown " << text << std::endl;
+              return false;
+            }
+          }
+        }
+        else if (titre == "CloudAccess")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amacc (text);
+            if (amacc == "eco") setCloudAccess (IPtTile::ECO);
+            else if (amacc == "mid") setCloudAccess (IPtTile::MID);
+            else if (amacc == "top") setCloudAccess (IPtTile::TOP);
+            else
+            {
+              std::cout << "Unknown access " << text << std::endl;
+              return false;
+            }
+          }
+        }
+        else if (titre == "SawingPadSize")
+        {
+          input >> text;
+          int val = atoi (text);
+          if (input.eof ()) reading = false;
+          else if (val > 0 && val % 2 == 1) setPadSize (val);
+          else if (val != 0)
+          {
+            std::cout << "Refused pad size " << val << std::endl;
+            return false;
+          }
+        }
+        else if (titre == "AsdBufferSize")
+        {
+          input >> text;
+          int val = atoi (text);
+          if (input.eof ()) reading = false;
+          else if (val > 0 && val % 2 == 1) setBufferSize (val);
+          else if (val != 0)
+          {
+            std::cout << "Refused buffer size " << val << std::endl;
+            return false;
+          }
+        }
+        else if (titre == "AmrelStep")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amstep (text);
+            if (amstep == "auto") setStep (AmrelConfig::STEP_ALL);
+            else if (amstep == "all") setStep (AmrelConfig::STEP_ALL);
+            else if (amstep == "sawing") setStep (AmrelConfig::STEP_SAWING);
+            else if (amstep == "shade") setStep (AmrelConfig::STEP_SHADE);
+            else if (amstep == "sobel") setStep (AmrelConfig::STEP_SOBEL);
+            else if (amstep == "fbsd") setStep (AmrelConfig::STEP_FBSD);
+            else if (amstep == "seeds") setStep (AmrelConfig::STEP_SEEDS);
+            else if (amstep == "asd") setStep (AmrelConfig::STEP_ASD);
+            else
+            {
+              std::cout << "Unknown step " << text << std::endl;
+              return false;
+            }
+          }
+        }
+        else if (titre == "OutputImage")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amstep (text);
+            if (amstep == "yes") setOutMap (true);
+          }
+        }
+        else if (titre == "ColorImage")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amstep (text);
+            if (amstep == "yes") setFalseColor (true);
+          }
+        }
+        else if (titre == "DtmBack")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amstep (text);
+            if (amstep == "yes") setBackDtm (true);
+          }
+        }
+        else if (titre == "BlackRoads")
+        {
+          input >> text;
+          if (input.eof ()) reading = false;
+          else
+          {
+            std::string amstep (text);
+            if (amstep == "yes") setColorInversion (true);
+          }
+        }
+      }
+    }
+    input.close ();
+  }
+  else std::cout << "No AMREL.ini file found" << std::endl;
+  return true;
 }
 
 
@@ -353,6 +518,13 @@ void AmrelConfig::setHalfSizeSeeds ()
   setMinBSLength (min_bs_length / 2);
   setSeedShift (seed_shift / 2);
   setSeedWidth (seed_width / 2);
+}
+
+
+void AmrelConfig::setFlySize (int val)
+{
+  fly_size = val;
+  if (fly_size < 0) fly_size = 0;
 }
 
 
@@ -720,4 +892,13 @@ bool AmrelConfig::createAltXyz (const std::string &name)
     }
     return false;
   }
+}
+
+
+// DIFF AMREL STD/MULTI
+
+
+bool AmrelConfig::importAllDtmFiles ()
+{
+  return false;
 }

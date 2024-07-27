@@ -21,7 +21,11 @@
 
 #include <iostream>
 #include <fstream>
+#include <cmath>
+#include <ctime>
 #include "amreltool.h"
+#include "shapefil.h"
+
 #include "rorpo.hpp"
 #include "image_png.hpp"
 
@@ -33,6 +37,12 @@ const float AmrelTool::NOMINAL_PLATEAU_MIN_LENGTH = 2.0f;
 const float AmrelTool::NOMINAL_PLATEAU_THICKNESS_TOLERANCE = 0.25f;
 const float AmrelTool::NOMINAL_SLOPE_TOLERANCE = 0.10f;
 const float AmrelTool::NOMINAL_SIDE_SHIFT_TOLERANCE = 0.5f;
+
+const unsigned int AmrelTool::HUE_BACK = (unsigned int) 16777215;
+const unsigned int AmrelTool::HUE_GRAY = (unsigned int) 65793;
+const unsigned int AmrelTool::HUE_RED = (unsigned int) 65536;
+const unsigned int AmrelTool::HUE_GREEN = (unsigned int) 256;
+const unsigned int AmrelTool::HUE_BLUE = (unsigned int) 1;
 
 
 AmrelTool::AmrelTool ()
@@ -46,7 +56,6 @@ AmrelTool::AmrelTool ()
   ptset = NULL;
   tile_loaded = false;
   buf_created = false;
-  track_map = NULL;
   iratio = 1.0f;
   out_seeds = NULL;
   out_sucseeds = NULL;
@@ -55,7 +64,7 @@ AmrelTool::AmrelTool ()
   if (bsdet.isSingleEdgeModeOn ()) bsdet.switchSingleOrDoubleEdge ();
   if (bsdet.isNFA ()) bsdet.switchNFA ();
   save_seeds = true;
-  count_of_roads = 0;
+  detection_map = NULL;
 }
 
 
@@ -64,6 +73,7 @@ AmrelTool::~AmrelTool ()
   clearFbsd ();
   clearSeeds ();
   clearAsd ();
+  if (detection_map != NULL) delete detection_map;
 }
 
 
@@ -96,14 +106,14 @@ void AmrelTool::clearDtm ()
 
 void AmrelTool::clearShading ()
 {
-  if (dtm_map != NULL) delete dtm_map;
+  if (dtm_map != NULL) delete [] dtm_map;
   dtm_map = NULL;
 }
 
 
 void AmrelTool::clearRorpo ()
 {
-  if (rorpo_map != NULL) delete rorpo_map;
+  if (rorpo_map != NULL) delete [] rorpo_map;
   rorpo_map = NULL;
 }
 
@@ -157,12 +167,11 @@ void AmrelTool::addTrackDetector ()
   ctdet->model()->setSlopeTolerance (NOMINAL_SLOPE_TOLERANCE);
   ctdet->model()->setSideShiftTolerance (NOMINAL_SIDE_SHIFT_TOLERANCE);
   ctdet->model()->setBSmaxTilt (NOMINAL_PLATEAU_MAX_TILT);
-  if (cfg.tailMinSizeDefined ())
-    ctdet->model()->setTailMinSize (cfg.tailMinSize ());
   if (ptset != NULL)
     ctdet->setPointsGrid (ptset, vm_width, vm_height, sub_div, csize);
   cfg.setDetector (ctdet);
   ctdet->setAutomatic (true);
+  adaptTrackDetector ();
 }
 
 
@@ -263,6 +272,11 @@ bool AmrelTool::loadPoints ()
 
 void AmrelTool::run ()
 {
+  if (cfg.isNewLidarOn ())
+  {
+    cfg.importAllDtmFiles ();
+    return;
+  }
   // TILE IMPORTS
   if (cfg.isDtmImportOn () || cfg.isXyzImportOn ())
   {
@@ -275,7 +289,15 @@ void AmrelTool::run ()
   {
     if (loadTileSet (false, false)) checkSeeds ();
   }
-  else if (cfg.isHillMapOn ()) saveHillImage ();
+  else if (cfg.isHillMapOn ())
+  {
+    if (loadTileSet (true, false))
+    {
+      saveHillImage ();
+      clear ();
+    }
+    return;
+  }
 
   // FULL AUTOMATIC DETECTION
   //-------------------------------------------------------------------------
@@ -284,7 +306,14 @@ void AmrelTool::run ()
     if (processSawing ())
       if (processAsd ())
       {
-        saveAsdImage ();
+        detection_map->setDisplayedSeeds (&connection_seeds);
+        saveAsdImage (AmrelConfig::RES_DIR
+                      + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+        if (cfg.isExportOn ())
+        {
+          if (cfg.isExportBoundsOn ()) exportRoads ();
+          else exportRoadCenters ();
+        }
       }
   }
 
@@ -321,7 +350,7 @@ void AmrelTool::run ()
   else if (cfg.step () == AmrelConfig::STEP_RORPO)
   {
     if (! loadShadingMap ()) return;
-    processRorpo ();
+    processRorpo (vm_width, vm_height);
     if (saveRorpoMap ())
     {
       if (cfg.isOutMapOn ()) saveRorpoImage ();
@@ -334,12 +363,17 @@ void AmrelTool::run ()
   //-------------------------------------------------------------------------
   else if (cfg.step () == AmrelConfig::STEP_SOBEL)
   {
-    if (! loadRorpoMap ()) return;
+    if (cfg.rorpoSkipped ())
+    {
+      if (! loadShadingMap ()) return;
+    }
+    else if (! loadRorpoMap ()) return;
     processSobel (vm_width, vm_height);
     if (saveSobelMap ())
     {
       if (cfg.isOutMapOn ()) saveSobelImage ();
-      clearRorpo ();
+      if (cfg.rorpoSkipped ()) clearShading ();
+      else clearRorpo ();
     }
   }
 
@@ -379,7 +413,13 @@ void AmrelTool::run ()
     if (! loadSeeds ()) return;
     if (! loadTileSet (false, false)) return; // requires width & height
     processAsd ();
-    saveAsdImage ();
+    saveAsdImage (AmrelConfig::RES_DIR
+                  + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+    if (cfg.isExportOn ())
+    {
+      if (cfg.isExportBoundsOn ()) exportRoads ();
+      else exportRoadCenters ();
+    }
   }
 }
 
@@ -387,30 +427,23 @@ void AmrelTool::run ()
 void AmrelTool::processShading ()
 {
   if (cfg.isVerboseOn ()) std::cout << "Shading ..." << std::endl;
-  if (dtm_map == NULL)
-    dtm_map = new Image2D<unsigned char> (vm_width, vm_height);
+  if (dtm_map == NULL) dtm_map = new unsigned char[vm_width * vm_height];
+  unsigned char *dtmp = dtm_map;
+  int shtype = (cfg.rorpoSkipped () ? TerrainMap::SHADE_EXP_SLOPE
+                                    : TerrainMap::SHADE_SLOPE);
   for (int j = 0; j < vm_height; j ++)
     for (int i = 0; i < vm_width; i ++)
-      (*dtm_map) (i, j) =
-        (unsigned char) dtm_in->get (i, j, TerrainMap::SHADE_SLOPE);
+      *dtmp ++ = (unsigned char) dtm_in->get (i, j, shtype);
   if (cfg.isVerboseOn ()) std::cout << "Shading OK" << std::endl;
-}
-
-
-void AmrelTool::processRorpo ()
-{
-  if (cfg.isVerboseOn ()) std::cout << "Rorpo ..." << std::endl;
-  if (rorpo_map == NULL)
-    rorpo_map = new Image2D<unsigned char> (vm_width, vm_height);
-  RORPO (*rorpo_map, *dtm_map, 30, 1);
-  if (cfg.isVerboseOn ()) std::cout << "Rorpo OK" << std::endl;
 }
 
 
 void AmrelTool::processSobel (int w, int h)
 {
   if (cfg.isVerboseOn ()) std::cout << "Sobel 5x5 ..." << std::endl;
-  gmap = new VMap (w, h, rorpo_map->get_pointer (), VMap::TYPE_SOBEL_5X5);
+  if (cfg.rorpoSkipped ())
+    gmap = new VMap (w, h, dtm_map, VMap::TYPE_SOBEL_5X5);
+  else gmap = new VMap (w, h, rorpo_map, VMap::TYPE_SOBEL_5X5);
   bsdet.setGradientMap (gmap);
   if (cfg.isVerboseOn ()) std::cout << "Sobel 5x5 OK" << std::endl;
 }
@@ -523,7 +556,6 @@ bool AmrelTool::processAsd ()
   road_sections.clear ();
   int num = 0;
   int unused = 0;
-  count_of_roads = 0;
   if (cfg.bufferSize () == 0 && ! tile_loaded)
   {
     if (ptset->loadPoints ()) tile_loaded = true;
@@ -536,10 +568,8 @@ bool AmrelTool::processAsd ()
   int cot = ptset->columnsOfTiles ();
   int rot = ptset->rowsOfTiles ();
   out_sucseeds = new std::vector<Pt2i>[cot * rot];
-  if (track_map == NULL) track_map = new unsigned short[vm_width * vm_height];
-  for (int j = 0; j < vm_height; j++)
-    for (int i = 0; i < vm_width; i++)
-      track_map[j * vm_width + i] = (unsigned short) 0;
+  if (detection_map != NULL) delete detection_map;
+  detection_map = new AmrelMap (vm_width, vm_height, &cfg);
   if (ctdet == NULL) addTrackDetector ();
   std::vector<Pt2i>::iterator it;
 
@@ -559,28 +589,29 @@ bool AmrelTool::processAsd ()
         Pt2i p1 (*it++);
         Pt2i p2 (*it++);
         Pt2i center ((p1.x () + p2.x ()) / 2, (p1.y () + p2.y ()) / 2);
-        if (track_map[(vm_height - 1 - center.y ()) * vm_width + center.x ()]
-            != (unsigned short) 0) unused ++;
+        if (detection_map->occupied (center)) unused ++;
         else
         {
-          count_of_roads ++;
           CarriageTrack *ct = ctdet->detect (p1, p2);
           if (ct != NULL && ct->plateau (0) != NULL)
           {
-            out_sucseeds[k].push_back (p1);
-            out_sucseeds[k].push_back (p2);
-            std::vector<Pt2i> pts;
-            ct->getConnectedPoints (&pts, true, vm_width, vm_height, iratio);
-            std::vector<Pt2i>::iterator pit = pts.begin ();
-            while (pit != pts.end ())
+            std::vector<std::vector<Pt2i> > pts;
+            if (cfg.isConnectedOn ())
+              ct->getConnectedPoints (&pts, true, vm_width, vm_height, iratio);
+            else ct->getPoints (&pts, true, vm_width, vm_height, iratio);
+            if (detection_map->add (pts))
             {
-              track_map[(vm_height - 1 - pit->y ()) * vm_width + pit->x ()]
-                  = (unsigned short) count_of_roads;
-              pit ++;
+              out_sucseeds[k].push_back (p1);
+              out_sucseeds[k].push_back (p2);
+              if (cfg.isExportOn ())
+              {
+                road_sections.push_back (ct);
+                ctdet->preserveDetection ();
+              }
             }
+            num ++;
           }
         }
-        num ++;
       }
       if (ctdet->getOuts () != 0)
         std::cout << "  " << ctdet->getOuts () << " requests outside\n"
@@ -603,36 +634,39 @@ bool AmrelTool::processAsd ()
           Pt2i p1 (*it++);
           Pt2i p2 (*it++);
           Pt2i center ((p1.x () + p2.x ()) / 2, (p1.y () + p2.y ()) / 2);
-          if (track_map[(vm_height - 1 - center.y ()) * vm_width + center.x ()]
-              != (unsigned short) 0) unused ++;
+          if (detection_map->occupied (center)) unused ++;
           else
           {
-            count_of_roads ++;
             CarriageTrack *ct = ctdet->detect (p1, p2);
             if (ct != NULL && ct->plateau (0) != NULL)
             {
-              num ++;
-              out_sucseeds[k].push_back (p1);
-              out_sucseeds[k].push_back (p2);
-              std::vector<Pt2i> pts;
+              std::vector<std::vector<Pt2i> > pts;
               if (cfg.isConnectedOn ())
                 ct->getConnectedPoints (&pts, true,
                                         vm_width, vm_height, iratio);
               else ct->getPoints (&pts, true, vm_width, vm_height, iratio);
-              std::vector<Pt2i>::iterator pit = pts.begin ();
-              while (pit != pts.end ())
+              if (isConnected (pts))
               {
-                track_map[(vm_height - 1 - pit->y ()) * vm_width + pit->x ()]
-                  = (unsigned short) count_of_roads;
-                pit ++;
+                if (detection_map->add (pts))
+                {
+                  out_sucseeds[k].push_back (p1);
+                  out_sucseeds[k].push_back (p2);
+                  if (cfg.isExportOn ())
+                  {
+                    road_sections.push_back (ct);
+                    ctdet->preserveDetection ();
+                  }
+                }
               }
+              else std::cout << "Road section " << num
+                             << " is not connected" << std::endl;
+              num ++;
             }
           }
         }
       }
     }
   }
-
   if (save_seeds)
   {
     saveSuccessfulSeeds ();
@@ -651,10 +685,14 @@ bool AmrelTool::processSawing ()
     if (! loadTileSet (true, false)) return false;
     processShading ();
     clearDtm ();
-    processRorpo ();
-    clearShading ();
+    if (! cfg.rorpoSkipped ())
+    {
+      processRorpo (vm_width, vm_height);
+      clearShading ();
+    }
     processSobel (vm_width, vm_height);
-    clearRorpo ();
+    if (cfg.rorpoSkipped ()) clearShading ();
+    else clearRorpo ();
     processFbsd ();
     clearSobel ();
     processSeeds ();
@@ -669,7 +707,7 @@ bool AmrelTool::processSawing ()
   std::vector<int> vals;
   std::ifstream input (cfg.tiles().c_str (), std::ios::in);
   bool reading = true;
-  if (input)
+  if (input.is_open ())
   {
     while (reading)
     {
@@ -709,7 +747,9 @@ bool AmrelTool::processSawing ()
     return false;
   }
   if (! dtm_in->assembleMap (ptset->columnsOfTiles (), ptset->rowsOfTiles (),
-                             ptset->xref (), ptset->yref (), true))
+                             ptset->xref (), ptset->yref (),
+                             true))     // for AMREL std
+                             // false))    // for AMRELnet
   {
     std::cout << "Unable to arrange DTM files in space" << std::endl;
     delete dtm_in;
@@ -724,29 +764,34 @@ bool AmrelTool::processSawing ()
   vm_width = dtm_w * ptset->columnsOfTiles ();
   vm_height = dtm_h * ptset->rowsOfTiles ();
   csize = dtm_in->cellSize ();
-  dtm_map = new Image2D<unsigned char> (pad_w * dtm_w, pad_h * dtm_h);
-  rorpo_map = new Image2D<unsigned char> (pad_w * dtm_w, pad_h * dtm_h);
+  dtm_map = new unsigned char[pad_w * dtm_w * pad_h * dtm_h];
+  if (! cfg.rorpoSkipped ())
+    rorpo_map = new unsigned char[pad_w * dtm_w * pad_h * dtm_h];
   out_seeds =
     new std::vector<Pt2i>[ptset->columnsOfTiles() * ptset->rowsOfTiles()];
 
   // Creates seed map
-  int k = dtm_in->nextPad (dtm_map->get_pointer ());
+  int k = dtm_in->nextPad (dtm_map);
   while (k != -1)
   {
     if (cfg.isVerboseOn ())
       std::cout << "  --> Pad " << k << " (" << (k % ptset->columnsOfTiles ())
                 << ", " << (k / ptset->columnsOfTiles ()) << "):" << std::endl;
-    processRorpo ();
+    if (! cfg.rorpoSkipped ()) processRorpo (pad_w * dtm_w, pad_h * dtm_h);
     processSobel (pad_w * dtm_w, pad_h * dtm_h);
-    unsigned char *mymap = rorpo_map->get_pointer ();
-    for (int i = 0; i < pad_h * dtm_h * pad_w * dtm_w; i++) *mymap++ = 0;
+    if (! cfg.rorpoSkipped ())
+    {
+      unsigned char *mymap = rorpo_map;
+      for (int i = 0; i < pad_h * dtm_h * pad_w * dtm_w; i++)
+        *mymap++ = (unsigned char) 0;
+    }
     processFbsd ();
     clearSobel ();
     processSeeds (k);
     clearFbsd ();
-    k = dtm_in->nextPad (dtm_map->get_pointer ());
+    k = dtm_in->nextPad (dtm_map);
   }
-  clearRorpo ();
+  if (! cfg.rorpoSkipped ()) clearRorpo ();
   clearShading ();
   return true;
 }
@@ -757,7 +802,7 @@ bool AmrelTool::saveShadingMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ofstream shading_out (name.c_str (), std::ios::out);
-  if (! shading_out)
+  if (! shading_out.is_open ())
   {
     std::cout << "Can't save shaded-DTM in " << name << std::endl;
     return false;
@@ -765,8 +810,7 @@ bool AmrelTool::saveShadingMap ()
   shading_out.write ((char *) (&vm_width), sizeof (int));
   shading_out.write ((char *) (&vm_height), sizeof (int));
   shading_out.write ((char *) (&csize), sizeof (float));
-  unsigned char *im = dtm_map->get_pointer ();
-  shading_out.write ((char *) im,
+  shading_out.write ((char *) dtm_map,
                      vm_width * vm_height * sizeof (unsigned char));
   shading_out.close ();
   return true;
@@ -778,7 +822,7 @@ bool AmrelTool::loadShadingMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ifstream shading_in (name.c_str (), std::ios::in);
-  if (! shading_in)
+  if (! shading_in.is_open ())
   {
     std::cout << name << ": can't be opened" << std::endl;
     return false;
@@ -786,9 +830,9 @@ bool AmrelTool::loadShadingMap ()
   shading_in.read ((char *) (&vm_width), sizeof (int));
   shading_in.read ((char *) (&vm_height), sizeof (int));
   shading_in.read ((char *) (&csize), sizeof (float));
-  dtm_map = new Image2D<unsigned char> (vm_width, vm_height);
-  unsigned char *im = dtm_map->get_pointer ();
-  shading_in.read ((char *) im, vm_width * vm_height * sizeof (unsigned char));
+  dtm_map = new unsigned char[vm_width * vm_height];
+  shading_in.read ((char *) dtm_map,
+                   vm_width * vm_height * sizeof (unsigned char));
   shading_in.close ();
   return true;
 }
@@ -799,7 +843,7 @@ bool AmrelTool::saveRorpoMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::RORPO_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ofstream rorpo_out (name.c_str (), std::ios::out);
-  if (! rorpo_out)
+  if (! rorpo_out.is_open ())
   {
     std::cout << "Can't save Rorpo map in " << name << std::endl;
     return false;
@@ -807,8 +851,7 @@ bool AmrelTool::saveRorpoMap ()
   rorpo_out.write ((char *) (&vm_width), sizeof (int));
   rorpo_out.write ((char *) (&vm_height), sizeof (int));
   rorpo_out.write ((char *) (&csize), sizeof (float));
-  unsigned char *im = rorpo_map->get_pointer ();
-  rorpo_out.write ((char *) im,
+  rorpo_out.write ((char *) rorpo_map,
                    vm_width * vm_height * sizeof (unsigned char));
   rorpo_out.close ();
   return true;
@@ -820,7 +863,7 @@ bool AmrelTool::loadRorpoMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::RORPO_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ifstream rorpo_in (name.c_str (), std::ios::in);
-  if (! rorpo_in)
+  if (! rorpo_in.is_open ())
   {
     std::cout << name << ": can't be opened" << std::endl;
     return false;
@@ -828,9 +871,9 @@ bool AmrelTool::loadRorpoMap ()
   rorpo_in.read ((char *) (&vm_width), sizeof (int));
   rorpo_in.read ((char *) (&vm_height), sizeof (int));
   rorpo_in.read ((char *) (&csize), sizeof (float));
-  rorpo_map = new Image2D<unsigned char> (vm_width, vm_height);
-  unsigned char *im = rorpo_map->get_pointer ();
-  rorpo_in.read ((char *) im, vm_width * vm_height * sizeof (unsigned char));
+  rorpo_map = new unsigned char[vm_width * vm_height];
+  rorpo_in.read ((char *) rorpo_map,
+                 vm_width * vm_height * sizeof (unsigned char));
   rorpo_in.close ();
   return true;
 }
@@ -841,7 +884,7 @@ bool AmrelTool::saveSobelMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::SOBEL_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ofstream sobel_out (name.c_str (), std::ios::out);
-  if (! sobel_out)
+  if (! sobel_out.is_open ())
   {
     std::cout << "Can't save Sobel map in " << name << std::endl;
     return false;
@@ -861,7 +904,7 @@ bool AmrelTool::loadSobelMap ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::SOBEL_FILE
                     + AmrelConfig::MAP_SUFFIX);
   std::ifstream sobel_in (name.c_str (), std::ios::in);
-  if (! sobel_in)
+  if (! sobel_in.is_open ())
   {
     std::cout << name << ": can't be opened" << std::endl;
     return false;
@@ -883,7 +926,7 @@ bool AmrelTool::saveFbsdSegments ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE
                     + AmrelConfig::FBSD_SUFFIX);
   std::ofstream fbsd_out (name.c_str (), std::ios::out);
-  if (! fbsd_out)
+  if (! fbsd_out.is_open ())
   {
     std::cout << "Can't save FBSD segments in " << name << std::endl;
     return false;
@@ -909,7 +952,7 @@ bool AmrelTool::loadFbsdSegments ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::FBSD_FILE
                     + AmrelConfig::FBSD_SUFFIX);
   std::ifstream fbsd_in (name.c_str (), std::ios::in);
-  if (! fbsd_in)
+  if (! fbsd_in.is_open ())
   {
     std::cout << name << ": can't be opened" << std::endl;
     return false;
@@ -936,7 +979,7 @@ bool AmrelTool::saveSeeds ()
   if (cfg.isVerboseOn ())
     std::cout << "Saving seeds in " << name << std::endl;
   std::ofstream seeds_out (name.c_str (), std::ios::out);
-  if (! seeds_out)
+  if (! seeds_out.is_open ())
   {
     std::cout << "Can't save seeds in " << name << std::endl;
     return false;
@@ -1044,7 +1087,7 @@ bool AmrelTool::loadSeeds ()
   std::string name (AmrelConfig::RES_DIR + AmrelConfig::SEED_FILE
                     + AmrelConfig::SEED_SUFFIX);
   std::ifstream seeds_in (name.c_str (), std::ios::in);
-  if (! seeds_in)
+  if (! seeds_in.is_open ())
   {
     std::cout << name << ": can't be opened" << std::endl;
     return false;
@@ -1141,6 +1184,116 @@ void AmrelTool::saveSuccessfulSeeds ()
 }
 
 
+void AmrelTool::exportRoads ()
+{
+  if (road_sections.empty ()) return;
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE
+                    + AmrelConfig::SHAPE_SUFFIX);
+  std::cout << "Exporting road bounds in " << name << std::endl;
+  SHPHandle hSHPHandle = SHPCreate (name.c_str (), SHPT_ARC);
+  SHPObject *shp = NULL;
+  std::vector<Pt2i> pts;
+  std::vector<Pt2i> pts2;
+  std::vector<CarriageTrack *>::iterator it = road_sections.begin ();
+  while (it != road_sections.end ())
+  {
+    (*it)->getPosition (pts, pts2, CTRACK_DISP_SCANS, iratio, true);
+    int sz = 2 * ((int) (pts.size ())) + 1;
+    double *x = new double[sz];
+    double *y = new double[sz];
+    double *ax = x;
+    double *ay = y;
+    std::vector<Pt2i>::iterator pit = pts.begin ();
+    while (pit != pts.end ())
+    {
+      *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+      *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      pit ++;
+    }
+    if (! pts2.empty ())
+    {
+      pit = pts2.end ();
+      do
+      {
+        pit --;
+        *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+        *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      }
+      while (pit != pts2.begin ());
+      *ax = *x;
+      *ay = *y;
+    }
+    shp = SHPCreateObject (SHPT_ARC, -1, 0, NULL, NULL, sz, x, y, NULL, NULL);
+    SHPWriteObject (hSHPHandle, -1, shp);
+    SHPDestroyObject (shp);
+    delete [] x;
+    delete [] y;
+    pts.clear ();
+    pts2.clear ();
+    it ++;
+  }
+  SHPClose (hSHPHandle);
+}
+
+
+void AmrelTool::exportRoadCenters ()
+{
+  if (road_sections.empty ()) return;
+  std::string name (AmrelConfig::RES_DIR + AmrelConfig::LINE_FILE
+                    + AmrelConfig::SHAPE_SUFFIX);
+  std::cout << "Exporting road centers in " << name << std::endl;
+  SHPHandle hSHPHandle = SHPCreate (name.c_str (), SHPT_ARC);
+  SHPObject *shp = NULL;
+  std::vector<Pt2i> pts;
+  std::vector<Pt2i> pts2;
+  std::vector<CarriageTrack *>::iterator it = road_sections.begin ();
+  while (it != road_sections.end ())
+  {
+    (*it)->getPosition (pts, pts2, CTRACK_DISP_CENTER, iratio, true);
+    int sz = (int) (pts.size ());
+    double *x = new double[sz];
+    double *y = new double[sz];
+    double *ax = x;
+    double *ay = y;
+    std::vector<Pt2i>::iterator pit = pts.begin ();
+    while (pit != pts.end ())
+    {
+      *ax++ = ((double) (ptset->xref () + pit->x () * 500 + 25)) / 1000;
+      *ay++ = ((double) (ptset->yref () + pit->y () * 500 + 25)) / 1000;
+      pit ++;
+    }
+    shp = SHPCreateObject (SHPT_ARC, -1, 0, NULL, NULL, sz, x, y, NULL, NULL);
+    SHPWriteObject (hSHPHandle, -1, shp);
+    SHPDestroyObject (shp);
+    delete [] x;
+    delete [] y;
+    pts.clear ();
+    pts2.clear ();
+    it ++;
+  }
+  SHPClose (hSHPHandle);
+}
+
+
+// DIFF AMREL STD/MULTI
+
+
+void AmrelTool::processRorpo (int rwidth, int rheight)
+{
+  if (cfg.isVerboseOn ()) std::cout << "Rorpo ..." << std::endl;
+  Image2D<unsigned char> inmap (rwidth, rheight);
+  inmap.add_data_from_pointer (dtm_map);
+  Image2D<unsigned char> outmap (rwidth, rheight);
+  RORPO (outmap, inmap, 30, 1);
+  if (rorpo_map == NULL)
+    rorpo_map = new unsigned char[rwidth * rheight];
+  unsigned char *rmap = rorpo_map;
+  unsigned char *rout = outmap.get_pointer ();
+  for (int i = 0 ; i < rheight * rwidth; i++) *rmap++ = *rout++;
+  if (cfg.isVerboseOn ()) std::cout << "Rorpo OK" << std::endl;
+}
+
+
 void AmrelTool::saveHillImage ()
 {
   if (! loadTileSet (true, false)) return;
@@ -1161,10 +1314,12 @@ void AmrelTool::saveHillImage ()
 
 void AmrelTool::saveShadingImage ()
 {
+  int shtype = (cfg.rorpoSkipped () ? TerrainMap::SHADE_EXP_SLOPE
+                                    : TerrainMap::SHADE_SLOPE);
   Image2D<unsigned char> im (vm_width, vm_height);
   for (int j = 0; j < vm_height; j ++)
     for (int i = 0; i < vm_width; i ++)
-      im (i, j) = (unsigned char) dtm_in->get (i, j, TerrainMap::SHADE_SLOPE);
+      im (i, j) = (unsigned char) dtm_in->get (i, j, shtype);
   write_2D_png_image (im, AmrelConfig::RES_DIR + AmrelConfig::SLOPE_FILE
                           + AmrelConfig::IM_SUFFIX);
 }
@@ -1172,7 +1327,9 @@ void AmrelTool::saveShadingImage ()
 
 void AmrelTool::saveRorpoImage ()
 {
-  write_2D_png_image (*rorpo_map, AmrelConfig::RES_DIR
+  Image2D<unsigned char> im (vm_width, vm_height);
+  im.add_data_from_pointer (dtm_map);
+  write_2D_png_image (im, AmrelConfig::RES_DIR
                       + AmrelConfig::RORPO_FILE + AmrelConfig::IM_SUFFIX);
 }
 
@@ -1344,85 +1501,127 @@ void AmrelTool::saveSeedsImage ()
 }
 
 
-void AmrelTool::saveAsdImage ()
+void AmrelTool::saveAsdImage (std::string name)
 {
-  unsigned short *map = track_map;
-  if (map == NULL) return;
+  if (cfg.isBackDtmOn () && dtm_in == NULL) loadTileSet (true, false);
+  saveAsdImage (name, cfg.isFalseColorOn (),
+                      cfg.isBackDtmOn () ? dtm_in : NULL);
+}
 
-  if (cfg.isFalseColorOn ())
+
+void AmrelTool::saveAsdImage (std::string name, bool colorOn, TerrainMap *bg)
+{
+  unsigned short *map = detection_map->getMap ();
+  if (map == NULL) return;
+  int mw = detection_map->width ();
+  int mh = detection_map->height ();
+  int nbroads = detection_map->numberOfRoads ();
+
+  if (colorOn)
   {
     srand (time (NULL));
-    unsigned char *red = new unsigned char[count_of_roads + 1];
-    unsigned char *green = new unsigned char[count_of_roads + 1];
-    unsigned char *blue = new unsigned char[count_of_roads + 1];
+    unsigned char *red = new unsigned char[nbroads];
+    unsigned char *green = new unsigned char[nbroads];
+    unsigned char *blue = new unsigned char[nbroads];
     red[0] = (unsigned char) 255;
     green[0] = (unsigned char) 255;
     blue[0] = (unsigned char) 255;
-    for (int i = 1; i <= count_of_roads; i ++)
+    for (int i = 1; i < nbroads; i ++)
     {
       bool nok = true;
       while (nok)
       {
-        red[i] = rand () % 256;
-        green[i] = rand () % 256;
-        blue[i] = rand () % 256;
-        nok = ((red[i] + green[i] + blue[i]) > 300);     // < 300 si fond noir
+        red[i] = (unsigned char) (rand () % 256);
+        green[i] = (unsigned char) (rand () % 256);
+        blue[i] = (unsigned char) (rand () % 256);
+        nok = ((int) red[i] + (int) green[i] + (int) blue[i] > 300);
+        // < 300 if black background
       }
     }
 
-    Image2D<unsigned int> im (vm_width, vm_height);
+    Image2D<unsigned int> im (mw, mh);
     unsigned int *pim = im.get_pointer ();
-    if (cfg.isBackDtmOn ())
+    if (bg != NULL)
     {
-      if (dtm_in == NULL) loadTileSet (true, false);
-      if (dtm_in != NULL)
-      {
-        for (int j = 0; j < vm_height; j++)
-          for (int i = 0; i < vm_width; i++)
-            *pim++ = (unsigned int) (dtm_in->get (i, j)) * 257 + 256 * 256;
-        pim = im.get_pointer ();
-      }
+      for (int j = 0; j < mh; j++)
+        for (int i = 0; i < mw; i++)
+          *pim++ = (unsigned int) (bg->get (i, j)) * HUE_GRAY;
     }
-    for (int i = 0; i < vm_width * vm_height; i++)
+    else for (int k = 0; k < mw * mh; k++) *pim++ = HUE_BACK;
+    pim = im.get_pointer ();
+    for (int i = 0; i < mw * mh; i++)
     {
-      if (*map != 0 || ! cfg.isBackDtmOn ())
-        *pim = (unsigned int) (red[*map] + green[*map] * 256
-                               + blue[*map] * 256 * 256);
+      if (*map != (unsigned short) 0)
+        *pim = (unsigned int) (red[*map] * HUE_RED
+                 + green[*map] * HUE_GREEN + blue[*map] * HUE_BLUE);
       pim++;
       map++;
     }
-    write_2D_png_color_image (im,
-      AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+    delete [] red;
+    delete [] green;
+    delete [] blue;
+    write_2D_png_color_image (im, name);
   }
   else
   {
-    Image2D<unsigned char> im (vm_width, vm_height);
+    Image2D<unsigned char> im (mw, mh);
     unsigned char *pim = im.get_pointer ();
-    if (cfg.isBackDtmOn ())
+    if (bg != NULL)
     {
-      if (dtm_in == NULL) loadTileSet (true, false);
-      if (dtm_in != NULL)
-      {
-        for (int j = 0; j < vm_height; j++)
-          for (int i = 0; i < vm_width; i++)
-            *pim++ = (unsigned char) (dtm_in->get (i, j));
-        pim = im.get_pointer ();
-      }
+      for (int j = 0; j < mh - 2; j++)
+        for (int i = 0; i < mw - 2; i++)
+          *pim++ = (unsigned char) (bg->get (i, j));
     }
-    for (int i = 0; i < vm_width * vm_height; i++)
+    else for (int k = 0; k < mw * mh; k++) *pim++ = (unsigned char) 0;
+    pim = im.get_pointer ();
+    for (int i = 0; i < mw * mh; i++)
     {
       if (cfg.isColorInversion ())
       {
-        if (*map == 0) *pim = (unsigned char) 255;
+        if (*map == (unsigned short) 0) *pim = (unsigned char) 255;
       }
-      else 
+      else
       {
-        if (*map != 0) *pim = (unsigned char) 255;
+        if (*map != (unsigned short) 0) *pim = (unsigned char) 255;
       }
       pim++;
       map++;
     }
-    write_2D_png_image (im,
-      AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+    write_2D_png_image (im, name);
   }
+}
+
+
+int AmrelTool::countRoadPixels ()
+{
+  Image2D<unsigned char> im
+    = read_2D_png_image<unsigned char> (
+        AmrelConfig::RES_DIR + AmrelConfig::ROAD_FILE + AmrelConfig::IM_SUFFIX);
+  int w = im.dimx (), h = im.dimy ();
+  unsigned char *pim = im.get_pointer ();
+  int nbi = 0, nbr = 0;
+  for (int j = 0; j < h; j ++)
+    for (int i = 0; i < w; i ++)
+    {
+      if (*pim++ > 100) nbr ++;
+//      if (*pim++ != 0) nbr ++;
+      nbi ++;
+    }
+  if (cfg.isVerboseOn ())
+    std::cout << "# road pixels = " << nbr << " / " << nbi << std::endl;
+  return nbr;
+}
+
+
+bool AmrelTool::isConnected (std::vector<std::vector<Pt2i> > &pts) const
+{
+  (void) pts;
+  return true;
+}
+
+
+void AmrelTool::adaptTrackDetector ()
+{
+  if (cfg.tailMinSizeDefined ())
+    ctdet->model()->setTailMinSize (cfg.tailMinSize ());
 }

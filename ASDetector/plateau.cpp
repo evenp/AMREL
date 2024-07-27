@@ -287,7 +287,7 @@ bool Plateau::track (const std::vector<Pt2f> &ptsh,
   locheight = it->y ();
   while (it != ptsh.end ())
   {
-    int x = (int) (it->x () * 1000 + (it->x () < 0 ? - 0.5f : 0.5f));
+    int x = floor (it->x () * 1000);
     if (searching && x > icenter)
     {
       searching = false;
@@ -295,8 +295,7 @@ bool Plateau::track (const std::vector<Pt2f> &ptsh,
       else if (x - icenter > icenter - ptsi.back().x ()) ifirst = i - 1;
       else ifirst = i;
     }
-    ptsi.push_back (Pt2i (x, (int) ((it->y () - locheight) * 1000
-                                    + (it->y () < locheight ? - 0.5f : 0.5f))));
+    ptsi.push_back (Pt2i (x, floor ((it->y () - locheight) * 1000)));
     i ++;
     it ++;
   }
@@ -682,7 +681,7 @@ bool Plateau::track (const std::vector<Pt2f> &ptsh, Plateau *refp,
   locheight = it->y ();
   while (it != ptsh.end ())
   {
-    int x = (int) (it->x () * 1000 + (it->x () > 0 ? - 0.5f : 0.5f));
+    int x = floor (it->x () * 1000);
     if (searching && x > icenter)
     {
       searching = false;
@@ -690,8 +689,7 @@ bool Plateau::track (const std::vector<Pt2f> &ptsh, Plateau *refp,
       else if (x - icenter > icenter - ptsi.back().x ()) ifirst = i - 1;
       else ifirst = i;
     }
-    ptsi.push_back (Pt2i (x, (int) ((it->y () - locheight) * 1000
-                                    + (it->y () < locheight ? - 0.5f : 0.5f))));
+    ptsi.push_back (Pt2i (x, floor ((it->y () - locheight) * 1000)));
     i ++;
     it ++;
   }
@@ -1169,6 +1167,12 @@ Pt2f Plateau::getDSSend () const
 bool Plateau::compHigher (Pt2f p1, Pt2f p2)
 {
   return (p2.y () > p1.y ());
+}
+
+
+bool Plateau::recompIFurther (Pt2i p1, Pt2i p2)
+{
+  return (p2.x () > p1.x () || (p2.x () == p1.x () && p2.y () > p1.y ()));
 }
 
 

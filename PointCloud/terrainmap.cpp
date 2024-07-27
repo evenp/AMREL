@@ -28,10 +28,12 @@
 
 const int TerrainMap::SHADE_HILL = 0;
 const int TerrainMap::SHADE_SLOPE = 1;
-const int TerrainMap::DEFAULT_PAD_SIZE = 3;
+const int TerrainMap::SHADE_EXP_SLOPE = 2;
 
 const float TerrainMap::RELIEF_AMPLI = 5.0f;
 const float TerrainMap::LIGHT_ANGLE_INCREMENT = 0.03f;
+
+const int TerrainMap::DEFAULT_PAD_SIZE = 3;
 const std::string TerrainMap::NVM_SUFFIX = std::string (".nvm");
 
 const float TerrainMap::MM2M = 0.001f;
@@ -49,14 +51,13 @@ TerrainMap::TerrainMap ()
   cell_size = 0.0f;
   x_min = 0.0;
   y_min = 0.0;
-  fx_min = 0.0;
-  fy_min = 0.0;
   no_data = 0.0;
   shading = SHADE_HILL;
   light_angle = 0.0f;
   light_v1.set (- ASF_SQRT2_2, 0.0f, ASF_SQRT2_2);
   light_v2.set (0.25f, - ASF_SQRT3_2 / 2, ASF_SQRT3_2);
   light_v3.set (0.25f, ASF_SQRT3_2 / 2, ASF_SQRT3_2);
+  slopiness = 1;
   pad_size = DEFAULT_PAD_SIZE;
   pad_w = pad_size;
   pad_h = pad_size;
@@ -83,13 +84,16 @@ void TerrainMap::clear ()
   arr_files = NULL;
   if (nmap != NULL) delete [] nmap;
   nmap = NULL;
-  layout.clear ();
-  input_files.clear ();
+  input_layout.clear ();
+  input_fullnames.clear ();
+  input_nicknames.clear ();
+  input_xmins.clear ();
+  input_ymins.clear ();
 }
 
 
 int TerrainMap::get (int i, int j) const
-{
+{ 
   if (shading == SHADE_HILL)
   {
     float val1 = light_v1.scalar (nmap[j * iwidth + i]);
@@ -101,11 +105,19 @@ int TerrainMap::get (int i, int j) const
     float val = val1 + (val2 + val3) / 2;
     return (int) (val * 100);
   }
-  else
+  else if (shading == SHADE_SLOPE)
   {
     Pt3f *pt = nmap + j * iwidth + i;
-    return 255 - (int) (sqrt (pt->x () * pt->x () + pt->y () * pt->y ()) * 255);
+    return (255 - (int) (sqrt (pt->x() * pt->x() + pt->y() * pt->y()) * 255));
   }
+  else if (shading == SHADE_EXP_SLOPE)
+  {
+    Pt3f *pt = nmap + j * iwidth + i;
+    double alph = 1. - pt->x () * pt->x () - pt->y () * pt->y ();
+    for (int sl = slopiness; sl > 1; sl --) alph *= alph;
+    return ((int) (alph * 255));
+  }
+  else return 0;
 }
 
 
@@ -122,17 +134,36 @@ int TerrainMap::get (int i, int j, int shading_type) const
     float val = val1 + (val2 + val3) / 2;
     return (int) (val * 100);
   }
-  else
+  else if (shading_type == SHADE_SLOPE)
   {
     Pt3f *pt = nmap + j * iwidth + i;
-    return 255 - (int) (sqrt (pt->x () * pt->x () + pt->y () * pt->y ()) * 255);
+    return (255 - (int) (sqrt (pt->x() * pt->x() + pt->y() * pt->y()) * 255));
   }
+  else if (shading_type == SHADE_EXP_SLOPE)
+  {
+    Pt3f *pt = nmap + j * iwidth + i;
+    double alph = 1. - pt->x () * pt->x () - pt->y () * pt->y ();
+    if (alph < 0.) alph = 0.;  // saturation
+    for (int sl = slopiness; sl > 1; sl --) alph *= alph;
+    return ((int) (alph * 255));
+  }
+  else return 0;
+}
+
+
+double TerrainMap::getSlopeFactor (int i, int j, int slp) const
+{
+  Pt3f *pt = nmap + j * iwidth + i;
+  double alph = 1. - pt->x () * pt->x () - pt->y () * pt->y ();
+  if (alph < 0.) alph = 0.;  // saturation
+  for (int sl = slp; sl > 1; sl --) alph *= alph;
+  return (alph);
 }
 
 
 void TerrainMap::toggleShadingType ()
 {
-  if (++shading > SHADE_SLOPE) shading = SHADE_HILL;
+  if (++shading > SHADE_EXP_SLOPE) shading = SHADE_HILL;
 }
 
 
@@ -172,12 +203,85 @@ void TerrainMap::setLightAngle (float val)
 }
 
 
+void TerrainMap::incSlopinessFactor (int inc)
+{
+  slopiness += inc;
+  if (slopiness < 1) slopiness = 1;
+}
+
+void TerrainMap::setSlopinessFactor (int val)
+{
+  slopiness = val;
+  if (slopiness < 1) slopiness = 1;
+}
+
+
+Pt2i TerrainMap::closestFlatArea (const Pt2i &pt, int srad, int frad, int sfact)
+{
+  int sxmin = pt.x () - srad, sxmax = pt.x () + srad + 1;
+  int symin = pt.y () - srad, symax = pt.y () + srad + 1;
+  if (sxmin < 0) sxmin = 0;
+  if (symin < 0) symin = 0;
+  if (sxmax > iwidth) sxmax = iwidth;
+  if (symax > iheight) symax = iheight;
+
+  int fxmin = sxmin - frad, fxmax = sxmax + frad;
+  int fymin = symin - frad, fymax = symax + frad;
+  if (fxmin < 0) fxmin = 0;
+  if (fymin < 0) fymin = 0;
+  if (fxmax > iwidth) fxmax = iwidth;
+  if (fymax > iheight) fymax = iheight;
+
+  int sw = sxmax - sxmin, sh = symax - symin, swh = sw * sh;
+  double *val = new double[swh];
+  int *cpt = new int[swh];
+  for (int i = 0; i < swh; i++)
+  {
+    val[i] = 0.;
+    cpt[i] = 0;
+  }
+
+  for (int fi = fxmin; fi < fxmax; fi ++)
+  {
+    int lxmin = fi - frad - sxmin;
+    int lxmax = fi + frad + 1 - sxmin;
+    if (lxmin < 0) lxmin = 0;
+    if (lxmax > sw) lxmax = sw;
+    for (int fj = fymin; fj < fymax; fj ++)
+    {
+      double dval = getSlopeFactor (fi, iheight - 1 - fj, sfact);
+      int lymin = fj - frad - symin;
+      int lymax = fj + frad + 1 - symin;
+      if (lymin < 0) lymin = 0;
+      if (lymax > sh) lymax = sh;
+      for (int lj = lymin; lj < lymax; lj ++)
+        for (int li = lxmin; li < lxmax; li ++)
+        {
+          val[lj * sw + li] += dval;
+          cpt[lj * sw + li] ++;
+        }
+    }
+  }
+
+  int cmax = 0;
+  val[0] /= cpt[0];
+  for (int i = 1; i < swh; i ++)
+  {
+    val[i] /= cpt[i];
+    if (val[i] > val[cmax]) cmax = i;
+  }
+  delete [] val;
+  delete [] cpt;
+  return (Pt2i (sxmin + cmax % sw, symin + cmax / sw));
+}
+
+
 bool TerrainMap::addNormalMapFile (const std::string &name)
 {
   std::ifstream dtmf (name, std::ios::in);
   if (! dtmf.is_open ()) return false;
   dtmf.close ();
-  input_files.push_back (name);
+  input_fullnames.push_back (name);
   return true;
 }
 
@@ -201,8 +305,8 @@ bool TerrainMap::assembleMap (int cols, int rows, int64_t xmin, int64_t ymin,
     arr_files = new std::string *[cols * rows];
     for (int i = 0; i < cols * rows; i++) arr_files[i] = NULL;
   }
-  std::vector<std::string>::iterator it = input_files.begin ();
-  while (it != input_files.end ())
+  std::vector<std::string>::iterator it = input_fullnames.begin ();
+  while (it != input_fullnames.end ())
   {
     std::ifstream nvmf (it->c_str (), std::ios::in | std::ifstream::binary);
     if (! nvmf.is_open ())
@@ -480,6 +584,23 @@ int TerrainMap::nextPad (unsigned char *map)
 }
 
 
+bool TerrainMap::getLayoutInfo (std::string &name, double &xmin, double &ymin,
+                                Pt2i lay)
+{
+  int index = -1, i = 0;
+  for (std::vector<Pt2i>::iterator it = input_layout.begin ();
+       index == -1 && it != input_layout.end (); it++, i++)
+    if (it->x () == lay.x () && it->y () == lay.y ()) index = i;
+  if (index != -1)
+  {
+    name = input_nicknames[index];
+    xmin = input_xmins[index];
+    ymin = input_ymins[index];
+  }
+  return (index != -1);
+}
+
+
 bool TerrainMap::loadMap (int k, unsigned char *submap)
 {
 //  std::cout << "MTILE " << k << " : "
@@ -570,11 +691,11 @@ void TerrainMap::saveFirstNormalMap (const std::string &name) const
     nvmf.write ((char *) (&twidth), sizeof (int));
     nvmf.write ((char *) (&theight), sizeof (int));
     nvmf.write ((char *) (&cell_size), sizeof (float));
-    float fxm = (float) fx_min;
+    float fxm = (float) input_xmins.front ();
     nvmf.write ((char *) (&fxm), sizeof (float));
-    float fym = (float) fy_min;
+    float fym = (float) input_ymins.front ();
     nvmf.write ((char *) (&fym), sizeof (float));
-    Pt2i txy = layout.front ();
+    Pt2i txy = input_layout.front ();
     Pt3f *line = nmap + iwidth * (iheight - 1);
     line -= txy.y () * theight * iwidth;
     line += txy.x () * twidth;
@@ -584,6 +705,46 @@ void TerrainMap::saveFirstNormalMap (const std::string &name) const
       line -= iwidth;
     }
     nvmf.close ();
+  }
+}
+
+void TerrainMap::saveLoadedNormalMaps (const std::string &dir) const
+{
+  std::vector<std::string>::const_iterator it = input_nicknames.begin ();
+  std::vector<double>::const_iterator xit = input_xmins.begin ();
+  std::vector<double>::const_iterator yit = input_ymins.begin ();
+  std::vector<Pt2i>::const_iterator lit = input_layout.begin ();
+  while (it != input_nicknames.end ())
+  {
+    std::string name (dir);
+    name += *it + NVM_SUFFIX;
+    std::ofstream nvmf (name.c_str (), std::ios::out | std::ofstream::binary);
+    if (! nvmf.is_open ())
+      std::cout << "File " << name << " can't be created" << std::endl;
+    else
+    {
+      nvmf.write ((char *) (&twidth), sizeof (int));
+      nvmf.write ((char *) (&theight), sizeof (int));
+      nvmf.write ((char *) (&cell_size), sizeof (float));
+      float fxm = (float) (*xit);
+      nvmf.write ((char *) (&fxm), sizeof (float));
+      float fym = (float) (*yit);
+      nvmf.write ((char *) (&fym), sizeof (float));
+      Pt2i txy (*lit);
+      Pt3f *line = nmap + iwidth * (iheight - 1);
+      line -= txy.y () * theight * iwidth;
+      line += txy.x () * twidth;
+      for (int j = 0; j < theight; j++)
+      {
+        nvmf.write ((char *) line, twidth * sizeof (Pt3f));
+        line -= iwidth;
+      }
+      nvmf.close ();
+    }
+    it ++;
+    xit ++;
+    yit ++;
+    lit ++;
   }
 }
 
@@ -624,11 +785,9 @@ bool TerrainMap::addDtmFile (const std::string &name, bool verb, bool grid_ref)
     iheight = height;
     x_min = xllc;
     y_min = yllc;
-    fx_min = xllc;
-    fy_min = yllc;
     cell_size = csize;
     no_data = nodata;
-    layout.push_back (Pt2i (0, 0));
+    input_layout.push_back (Pt2i (0, 0));
   }
   else
   {
@@ -666,8 +825,8 @@ bool TerrainMap::addDtmFile (const std::string &name, bool verb, bool grid_ref)
     }
     if (xshift < 0 || yshift < 0)
     {
-      std::vector<Pt2i>::iterator it = layout.begin ();
-      while (it != layout.end ())
+      std::vector<Pt2i>::iterator it = input_layout.begin ();
+      while (it != input_layout.end ())
       {
         if (xshift < 0) it->set (it->x () - xshift, it->y ());
         if (yshift < 0) it->set (it->x (), it->y () - yshift);
@@ -686,13 +845,21 @@ bool TerrainMap::addDtmFile (const std::string &name, bool verb, bool grid_ref)
         y_min = yllc;
       }
     }
-    layout.push_back (Pt2i (xshift, yshift));
+    input_layout.push_back (Pt2i (xshift, yshift));
     if (iwidth / width <= xshift) iwidth = (xshift + 1) * width;
     if (iheight / height <= yshift) iheight = (yshift + 1) * height;
   }
 
-  input_files.push_back (name);
+  input_fullnames.push_back (name);
+  input_xmins.push_back (xllc);
+  input_ymins.push_back (yllc);
   return true;
+}
+
+
+void TerrainMap::addDtmName (const std::string &name)
+{
+  input_nicknames.push_back (name);
 }
 
 
@@ -702,9 +869,9 @@ bool TerrainMap::createMapFromDtm (bool verb, bool grid_ref)
   double *hval = new double[isz];
   for (int i = 0; i < isz; i++) hval[i] = no_data;
 
-  std::vector<Pt2i>::iterator it = layout.begin ();
-  std::vector<std::string>::iterator itn = input_files.begin ();
-  while (it != layout.end ())
+  std::vector<Pt2i>::iterator it = input_layout.begin ();
+  std::vector<std::string>::iterator itn = input_fullnames.begin ();
+  while (it != input_layout.end ())
   {
     int dx = it->x () * twidth;
     int dy = (iheight / theight - 1 - it->y ()) * theight;

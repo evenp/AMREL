@@ -22,11 +22,14 @@
 #ifndef AMREL_TOOL_H
 #define AMREL_TOOL_H
 
-#include "image.hpp"
 #include "terrainmap.h"
 #include "vmap.h"
 #include "bsdetector.h"
 #include "amrelconfig.h"
+#include "amrelmap.h"
+/* SPEC AMRELnet
+#include "image.hpp"
+// FIN SPEC */
 
 
 /** 
@@ -52,6 +55,17 @@ public:
   static const float NOMINAL_SLOPE_TOLERANCE;
   /** Nominal value for plateau side shift tolerance when detecting. */
   static const float NOMINAL_SIDE_SHIFT_TOLERANCE;
+
+  /** Hue value for background color. */
+  static const unsigned int HUE_BACK;
+  /** Hue value for gray color. */
+  static const unsigned int HUE_GRAY;
+  /** Hue value for red color. */
+  static const unsigned int HUE_RED;
+  /** Hue value for green color. */
+  static const unsigned int HUE_GREEN;
+  /** Hue value for blue color. */
+  static const unsigned int HUE_BLUE;
 
 
   /**
@@ -165,8 +179,10 @@ public:
 
   /**
    * Detects roads on loaded image : step 2 = RORPO image filtering.
+   * @param rwidth Width of Rorpo image.
+   * @param rheight Height of Rorpo image.
    */
-  void processRorpo ();
+  void processRorpo (int rwidth, int rheight);
 
   /**
    * Detects roads on loaded image : step 3 = Sobel gradient map construction.
@@ -291,9 +307,37 @@ public:
   void saveSeedsImage ();
 
   /**
-   * Displays extracted roads in steps/roads.png image.
+   * Displays extracted roads in a PNG image.
+   * @param name Road detection image name.
    */
-  void saveAsdImage ();
+  void saveAsdImage (std::string name);
+
+  /**
+   * Displays extracted roads in PNG image file.
+   * @param name Image file name.
+   * @param colorOn False color modality status.
+   * @param bg Reference to a DTM map as background.
+   */
+  void saveAsdImage (std::string name, bool colorOn, TerrainMap *bg);
+
+  /**
+   * Returns the number of road pixels on result PNG map.
+   */
+  int countRoadPixels ();
+
+  /**
+   * Exports detected roads in shape file steps/roads.shx.
+   */
+  void exportRoads ();
+
+  /**
+   * Exports detected road center lines in shape file steps/road_lines.shx.
+   */
+  void exportRoadCenters ();
+
+void compareSeeds ();
+void compareMaps ();
+void compareRoads ();
 
 
 private:
@@ -315,17 +359,15 @@ private:
   bool tile_loaded;
   /** Flag indicating if tile set buffers are already created. */
   bool buf_created;
-  /** Map of detected roads. */
-  unsigned short *track_map;
   /** Image to meter ratio : inverse of cell size. */
   float iratio;
 
   /** Digital terrain model (DTM). */
   TerrainMap *dtm_in;
   /** Shaded DTM image. */
-  Image2D<unsigned char> *dtm_map;
+  unsigned char *dtm_map;
   /** Rorpo output image. */
-  Image2D<unsigned char> *rorpo_map;
+  unsigned char *rorpo_map;
   /** Successful seeds saving modality. */
   bool save_seeds;
 
@@ -342,10 +384,22 @@ private:
 
   /** Road detector. */
   CTrackDetector *ctdet;
-  /** Number of detected mountain road sections. */
-  int count_of_roads;
   /** List of detected road sections. */
   std::vector<CarriageTrack *> road_sections;
+  /** Map of detected roads. */
+  AmrelMap *detection_map;
+
+  /** Connection seeds between connected components (for AMRELnet). */
+  std::vector<Pt2i> connection_seeds;
+
+
+  /**
+   * Completes the track detector features with application needs.
+   * Differenciation with AMRELnet.
+   */
+  void adaptTrackDetector ();
+
+bool isConnected (std::vector<std::vector<Pt2i> > &pts) const;
 
 };
 #endif

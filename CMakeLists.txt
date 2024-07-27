@@ -27,6 +27,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/ImageTools
     ${PROJECT_SOURCE_DIR}/PointCloud
     ${PROJECT_SOURCE_DIR}/RORPO2D
+    ${PROJECT_SOURCE_DIR}/ShapeLib-1.3.0
 )
 
 # Add files
@@ -36,6 +37,8 @@ set(HEADERS ASDetector/carriagetrack.h
            ASDetector/plateau.h
            ASDetector/plateaumodel.h
            Amrel/amrelconfig.h
+           Amrel/amrelmap.h
+           Amrel/amreltimer.h
            Amrel/amreltool.h
            BlurredSegment/antipodal.h
            BlurredSegment/biptlist.h
@@ -85,6 +88,7 @@ set(HEADERS ASDetector/carriagetrack.h
            RORPO2D/rorpo.hpp
            RORPO2D/basic_operators.hpp
            RORPO2D/sort_functions.hpp
+           ShapeLib-1.3.0/shapefil.h
 )
 
 set(SOURCES main.cpp
@@ -94,6 +98,8 @@ set(SOURCES main.cpp
            ASDetector/plateau.cpp
            ASDetector/plateaumodel.cpp
            Amrel/amrelconfig.cpp
+           Amrel/amrelmap.cpp
+           Amrel/amreltimer.cpp
            Amrel/amreltool.cpp
            BlurredSegment/antipodal.cpp
            BlurredSegment/biptlist.cpp
@@ -133,6 +139,10 @@ set(SOURCES main.cpp
            PointCloud/pt3i.cpp
            PointCloud/terrainmap.cpp
            PointCloud/vr2f.cpp
+           ShapeLib-1.3.0/dbfopen.c
+           ShapeLib-1.3.0/safileio.c
+           ShapeLib-1.3.0/shpopen.c
+           ShapeLib-1.3.0/shptree.c
 )
 
 # Create executable and link library

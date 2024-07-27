@@ -63,6 +63,10 @@ public:
   static const std::string NVM_DEFAULT_DIR;
   /** Name of default point tile directory. */
   static const std::string TIL_DEFAULT_DIR;
+  /** Name of default ASCII DTM directory. */
+  static const std::string DTM_DEFAULT_DIR;
+  /** Name of default point cloud directory. */
+  static const std::string PTS_DEFAULT_DIR;
 
   /** Name of AMREL configuration file. */
   static const std::string CONFIG_FILE;
@@ -123,6 +127,12 @@ public:
   ~AmrelConfig ();
 
   /**
+   * \brief Interprets the configuration file.
+   * Returns whether the file was correctly read.
+   */
+  bool readConfig ();
+
+  /**
    * \brief Sets the carriage track detector.
    */
   void setDetector (CTrackDetector *det);
@@ -178,12 +188,23 @@ public:
   inline void setCloudAccess (int val) { cloud_access = val; }
 
   /**
+   * Inquires if rorpo step should be skipped.
+   */
+  inline bool rorpoSkipped () const { return no_rorpo; }
+
+  /**
+   * Requires half-size seed production.
+   */
+  inline void skipRorpo () { no_rorpo = true; }
+
+  /**
    * Gets the assigned thickness of blurred segments.
    */
   inline int maxBSThickness () const { return max_bs_thickness; }
 
   /**
    * Sets the assigned length of blurred segments.
+   * @param val New thickness value.
    */
   void setMaxBSThickness (int val);
 
@@ -194,6 +215,7 @@ public:
 
   /**
    * Sets the minimal length of accepted blurred segments.
+   * @param val New length value.
    */
   void setMinBSLength (int val);
 
@@ -204,6 +226,7 @@ public:
 
   /**
    * Sets the distance between successive seeds.
+   * @param val New shift value.
    */
   void setSeedShift (int val);
 
@@ -214,6 +237,7 @@ public:
 
   /**
    * Sets the width of seeds.
+   * @param val New width value.
    */
   void setSeedWidth (int val);
 
@@ -226,6 +250,17 @@ public:
    * Requires half-size seed production.
    */
   void setHalfSizeSeeds ();
+
+  /**
+   * Gets the size threshold for road flies hunting.
+   */
+  inline int flySize () const { return fly_size; }
+
+  /**
+   * Sets the size threshold for road flies hunting.
+   * @param val New size value.
+   */
+  void setFlySize (int val);
 
   /**
    * \brief Returns pad size for seed generation.
@@ -389,6 +424,16 @@ public:
   void saveDetectorStatus () const;
 
   /**
+   * \brief Returns new LiDAR input status.
+   */
+  inline void setNewLidarOn () { new_lidar = true; }
+
+  /**
+   * \brief Returns new LiDAR inputs status.
+   */
+  inline bool isNewLidarOn () const { return new_lidar; }
+
+  /**
    * \brief Returns DTM import request status.
    */
   inline bool isDtmImportOn () const { return dtm_import; }
@@ -415,6 +460,12 @@ public:
    * @param name Name of the file to be imported.
    */
   void setImportFile (const std::string &name);
+
+  /**
+   * \brief Imports all ASCII files in DTM directory.
+   * Returns import success status.
+   */
+  bool importAllDtmFiles ();
 
   /**
    * \brief Imports a DTM tile file.
@@ -446,6 +497,8 @@ private:
   static const int DEFAULT_SEED_SHIFT;
   /** Default value for width of seeds. */
   static const int DEFAULT_SEED_WIDTH;
+  /** Default detection threshold value for road fly size. */
+  static const int DEFAULT_FLY_SIZE;
 
 
   /** Pointer to used carriage track detector. */
@@ -471,6 +524,8 @@ private:
   int seed_width;
   /** Half-size seed production status. */
   bool half_size;
+  /** Detection threshold for road fly size. */
+  int fly_size;
   /** Pad size for seed generation. */
   int pad_size;
   /** Tile set size for road extraction. */
@@ -482,6 +537,8 @@ private:
   int extraction_step;
   /** Road connection status. */
   bool connected_mode;
+  /** Rorpo-skipped mode. */
+  bool no_rorpo;
   /** Hill-shaded map production status. */
   bool hill_map;
   /** Output map production status. */
@@ -499,6 +556,8 @@ private:
   /** Road export modality (0 = no export, 1 = centerline, 2 = bounds). */
   int exporting;
 
+  /** New LiDAR input status. */
+  bool new_lidar;
   /** DTM import request status. */
   bool dtm_import;
   /** Path to DTM files. */

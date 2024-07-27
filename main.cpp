@@ -21,7 +21,11 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 #include "amreltool.h"
+// TIME IN
+#include "amreltimer.h"
+// TIME OUT
 
 using namespace std;
 
@@ -29,6 +33,17 @@ using namespace std;
 int main (int argc, char *argv[])
 {
   AmrelTool autodet;
+// TIME IN
+  AmrelTimer timer (&autodet);
+// TIME OUT
+
+// TIME IN
+  if (argc == 2 && argv[1] == std::string ("count"))
+  {
+    autodet.countRoadPixels ();
+    return EXIT_SUCCESS;
+  }
+// TIME OUT
 
   for (int i = 1; i < argc; i++)
   {
@@ -50,6 +65,8 @@ int main (int argc, char *argv[])
         autodet.config()->setStep (AmrelConfig::STEP_SEEDS);
       else if (string(argv[i]) == string ("--asd"))
         autodet.config()->setStep (AmrelConfig::STEP_ASD);
+      else if (string(argv[i]) == string ("--nororpo"))
+        autodet.config()->skipRorpo ();
       else if (string(argv[i]) == string ("--eco"))
         autodet.config()->setCloudAccess (IPtTile::ECO);
       else if (string(argv[i]) == string ("--mid"))
@@ -81,6 +98,12 @@ int main (int argc, char *argv[])
         autodet.config()->setFalseColor (true);
       else if (string(argv[i]) == string ("--dtm"))
         autodet.config()->setBackDtm (true);
+// TIME IN
+      else if (string(argv[i]) == string ("--exportbounds"))
+        autodet.config()->setExport (2);
+      else if (string(argv[i]) == string ("--export"))
+        autodet.config()->setExport (1);
+// TIME OUT
       else if (string(argv[i]) == string ("--unconnected"))
         autodet.config()->setConnected (false);
       else if (string(argv[i]) == string ("--half"))
@@ -145,6 +168,22 @@ int main (int argc, char *argv[])
         }
         autodet.config()->addTileName (argv[i]);
       }
+// TIME IN
+      else if (string(argv[i]) == string ("--check"))
+        autodet.config()->setSeedCheck (true);
+      else if (string(argv[i]) == string ("--fullperf"))
+        timer.request (AmrelTimer::FULL);
+      else if (string(argv[i]) == string ("--noloadperf"))
+        timer.request (AmrelTimer::FULL_WITHOUT_LOAD);
+      else if (string(argv[i]) == string ("--memperf"))
+        timer.request (AmrelTimer::ONLY_LOAD);
+      else if (string(argv[i]) == string ("--stepperf"))
+        timer.request (AmrelTimer::BY_STEP);
+      else if (string(argv[i]) == string ("--perfcount"))
+      {
+        if (i != argc - 1) timer.repeat (atoi (argv[++i]));
+      }
+// TIME OUT
       else
       {
         cout << "Unknown option " << argv[i] << endl;
@@ -159,6 +198,10 @@ int main (int argc, char *argv[])
     }
   }
 
+// TIME IN
+  if (timer.isRequested ()) timer.run ();
+  else
+// TIME OUT
   autodet.run ();
 
   return EXIT_SUCCESS;
