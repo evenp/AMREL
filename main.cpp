@@ -76,17 +76,20 @@ int main (int argc, char *argv[])
       else if (string(argv[i]) == string ("--pad"))
       {
         if (i == argc - 1
-            || ! autodet.config()->setPadSize (atoi (argv[++i]))) return 0;
+            || ! autodet.config()->setPadSize (atoi (argv[++i])))
+          return 0;
       }
       else if (string(argv[i]) == string ("--buf"))
       {
         if (i == argc - 1
-            || ! autodet.config()->setBufferSize (atoi (argv[++i]))) return 0;
+            || ! autodet.config()->setBufferSize (atoi (argv[++i])))
+          return 0;
       }
       else if (string(argv[i]) == string ("--tail"))
       {
         if (i == argc - 1
-            || ! autodet.config()->setTailMinSize (atoi (argv[++i]))) return 0;
+            || ! autodet.config()->setTailMinSize (atoi (argv[++i])))
+          return 0;
       }
       else if (string(argv[i]) == string ("--hill"))
         autodet.config()->setHillMap (true);
