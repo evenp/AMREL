@@ -1,31 +1,7 @@
-/*  Copyright 2021 Philippe Even and Phuc Ngo,
-      authors of paper:
-      Even, P., and Ngo, P., 2021,
-      Automatic forest road extraction fromLiDAR data of mountainous areas.
-      In the First International Joint Conference of Discrete Geometry
-      and Mathematical Morphology (Springer LNCS 12708), pp. 93-106.
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
 #include <string>
 #include <vector>
 #include <iostream>
 #include "amreltool.h"
-// TIME IN
-#include "amreltimer.h"
-// TIME OUT
 
 using namespace std;
 
@@ -33,17 +9,6 @@ using namespace std;
 int main (int argc, char *argv[])
 {
   AmrelTool autodet;
-// TIME IN
-  AmrelTimer timer (&autodet);
-// TIME OUT
-
-// TIME IN
-  if (argc == 2 && argv[1] == std::string ("count"))
-  {
-    autodet.countRoadPixels ();
-    return EXIT_SUCCESS;
-  }
-// TIME OUT
 
   for (int i = 1; i < argc; i++)
   {
@@ -77,7 +42,7 @@ int main (int argc, char *argv[])
       {
         if (i == argc - 1
             || ! autodet.config()->setPadSize (atoi (argv[++i])))
-          return 0;
+              return 0;
       }
       else if (string(argv[i]) == string ("--buf"))
       {
@@ -101,12 +66,6 @@ int main (int argc, char *argv[])
         autodet.config()->setFalseColor (true);
       else if (string(argv[i]) == string ("--dtm"))
         autodet.config()->setBackDtm (true);
-// TIME IN
-      else if (string(argv[i]) == string ("--exportbounds"))
-        autodet.config()->setExport (2);
-      else if (string(argv[i]) == string ("--export"))
-        autodet.config()->setExport (1);
-// TIME OUT
       else if (string(argv[i]) == string ("--unconnected"))
         autodet.config()->setConnected (false);
       else if (string(argv[i]) == string ("--half"))
@@ -171,22 +130,6 @@ int main (int argc, char *argv[])
         }
         autodet.config()->addTileName (argv[i]);
       }
-// TIME IN
-      else if (string(argv[i]) == string ("--check"))
-        autodet.config()->setSeedCheck (true);
-      else if (string(argv[i]) == string ("--fullperf"))
-        timer.request (AmrelTimer::FULL);
-      else if (string(argv[i]) == string ("--noloadperf"))
-        timer.request (AmrelTimer::FULL_WITHOUT_LOAD);
-      else if (string(argv[i]) == string ("--memperf"))
-        timer.request (AmrelTimer::ONLY_LOAD);
-      else if (string(argv[i]) == string ("--stepperf"))
-        timer.request (AmrelTimer::BY_STEP);
-      else if (string(argv[i]) == string ("--perfcount"))
-      {
-        if (i != argc - 1) timer.repeat (atoi (argv[++i]));
-      }
-// TIME OUT
       else
       {
         cout << "Unknown option " << argv[i] << endl;
@@ -200,11 +143,6 @@ int main (int argc, char *argv[])
       return 0;
     }
   }
-
-// TIME IN
-  if (timer.isRequested ()) timer.run ();
-  else
-// TIME OUT
   autodet.run ();
 
   return EXIT_SUCCESS;
